@@ -2,6 +2,7 @@ from app.agents.contact_agent import ContactAgent
 from app.agents.deal_agent import DealAgent
 from app.agents.main_agent import MainAgent
 from app.llm import LLM
+from app.merchants import Merchant, Merchants
 from tests.fakes import FakeBedrock, FakeEmbedder, fake_store, text_reply, tool_call
 
 
@@ -109,17 +110,18 @@ def test_main_agent_sees_selection_and_photo_and_can_add_to_cart():
     store = fake_store()
     client = FakeBedrock(
         tool_call("find_deals", {"product": "fridge"}, "a"),
-        text_reply("1. Amazon $499. 2. Walmart $650. Which fits the space?"),
+        text_reply("1. Slim $499. 2. Wide $650. Which fits the space?"),
     )
 
     class Deals:
         def find_deals(self, product, location):
             return {"deals": [
-                {"store": "Amazon", "title": "Slim fridge", "price": "$499", "amount": 499, "currency": "USD", "url": "a"},
-                {"store": "Walmart", "title": "Wide fridge", "price": "$650", "amount": 650, "currency": "USD", "url": "w"},
+                {"store": "Shop", "title": "Slim fridge", "price": "$499", "amount": 499, "currency": "USD", "url": "https://shop.com/s"},
+                {"store": "Shop", "title": "Wide fridge", "price": "$650", "amount": 650, "currency": "USD", "url": "https://shop.com/w"},
             ]}
 
-    agent = MainAgent(LLM(client, "m"), store, Deals(), contacts=None, search=lambda q: [])
+    shop = Merchant("shop", "Shop", ("shop.com",), "payee@shop.com", "help@shop.com", ("shop.com",))
+    agent = MainAgent(LLM(client, "m"), store, Deals(), contacts=None, search=lambda q: [], merchants=Merchants([shop]))
     out = agent.chat("u1", "fridge please")
     slim, wide = out["tool_calls"][0]["output"]["deals"]
     assert slim["deal_id"] and slim["payable"] and slim["amount"] == "499.00"

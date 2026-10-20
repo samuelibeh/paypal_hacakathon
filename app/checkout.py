@@ -1,12 +1,15 @@
 """Cart and PayPal checkout.
 
 Prices always come from the deals we stored when the agent found them, never from the
-client, so the browser can't change what gets charged.
+client, so the browser can't change what gets charged. The PayPal order names the store's
+own PayPal account as the payee, so paying sends the money to the store. A cart holds items
+from one store at a time, since each payment goes to one payee.
 """
 
 from decimal import Decimal, InvalidOperation
 
 from app import config
+from app.merchants import Merchants, registry
 
 ZERO_DECIMAL_CURRENCIES = {"HUF", "JPY", "TWD"}  # PayPal rejects decimals for these
 
@@ -27,15 +30,26 @@ def money(value, currency: str) -> str | None:
     return str(amount.quantize(step))
 
 
-def prepare_deal(deal: dict) -> dict:
+def prepare_deal(deal: dict, merchants: Merchants | None = None) -> dict:
     """Normalise the deal agent's price fields and mark whether the deal can be paid in the app."""
+    merchant = (merchants or registry()).for_url(deal.get("url"))
     currency = str(deal.get("currency") or "").strip().upper() or None
     amount = money(deal.get("amount"), currency or "")
+    if amount is None:
+        reason = "it has no price we can charge"
+    elif not merchant:
+        reason = "the app can only pay stores that are set up to take PayPal through it"
+    elif currency != config.PAYPAL_CURRENCY:
+        reason = f"checkout takes {config.PAYPAL_CURRENCY} prices only"
+    else:
+        reason = None
     return {
         **deal,
         "amount": amount,
         "currency": currency,
-        "payable": amount is not None and currency == config.PAYPAL_CURRENCY,
+        "merchant_id": merchant.id if merchant else None,
+        "payable": reason is None,
+        "unpayable_reason": reason,
     }
 
 
@@ -53,26 +67,35 @@ def add_item(store, user_id: str, deal_id: str) -> dict:
     deal = store.get_deal(user_id, deal_id)
     if not deal:
         raise CheckoutError(f"No deal with id {deal_id}.")
+    title = deal.get("title") or "This deal"
     if not deal.get("payable"):
+        reason = deal.get("unpayable_reason") or f"checkout takes {config.PAYPAL_CURRENCY} prices only"
+        raise CheckoutError(f"{title} can't be paid in the app ({reason}). It can be bought on the store's site: {deal.get('url')}")
+    other = next((i for i in store.get_cart(user_id) if i.get("merchant_id") != deal["merchant_id"]), None)
+    if other:
         raise CheckoutError(
-            f"{deal.get('title') or 'This deal'} can't be paid in the app (checkout takes "
-            f"{config.PAYPAL_CURRENCY} prices only). It can be bought on the store's site: {deal.get('url')}"
+            f"Your cart has items from {other.get('store')}. Each PayPal payment goes to one store, "
+            f"so pay for those or remove them before adding {title}."
         )
     store.add_to_cart(user_id, deal_id)
     return cart_summary(store, user_id)
 
 
-def create_order(store, paypal, user_id: str) -> dict:
+def create_order(store, paypal, user_id: str, merchants: Merchants | None = None) -> dict:
     cart = cart_summary(store, user_id)
     if not cart["items"]:
         raise CheckoutError("Your cart is empty.")
-    items = [
-        {"name": f"{i.get('title') or 'Item'} ({i.get('store') or 'store'})", "amount": i["amount"]}
-        for i in cart["items"]
-    ]
-    order = paypal.create_order(items, cart["currency"], cart["total"])
-    store.save_order(user_id, order["id"], [i["deal_id"] for i in cart["items"]], cart["total"], cart["currency"])
-    return {"id": order["id"], "total": cart["total"], "currency": cart["currency"]}
+    merchant_ids = {i.get("merchant_id") for i in cart["items"]}
+    merchant = (merchants or registry()).get(merchant_ids.pop()) if len(merchant_ids) == 1 else None
+    if not merchant:
+        raise CheckoutError("Your cart has items the app can't pay for together. Remove them and add them again.")
+    items = [{"name": i.get("title") or "Item", "amount": i["amount"]} for i in cart["items"]]
+    order = paypal.create_order(items, cart["currency"], cart["total"], payee_email=merchant.paypal_email)
+    store.save_order(
+        user_id, order["id"], [i["deal_id"] for i in cart["items"]], cart["total"], cart["currency"],
+        merchant=merchant.to_dict(), items=[{"title": i["name"], "amount": i["amount"]} for i in items],
+    )
+    return {"id": order["id"], "total": cart["total"], "currency": cart["currency"], "store": merchant.name}
 
 
 def capture_order(store, paypal, user_id: str, order_id: str) -> dict:
