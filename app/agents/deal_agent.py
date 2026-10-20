@@ -13,8 +13,14 @@ If no location is given, search major online stores (Amazon, Walmart, Temu, eBay
 Never invent prices or stores; only report what the search results show.
 
 Finish with ONLY a JSON object, no prose:
-{"deals": [{"store": str, "title": str, "price": str or null, "url": str, "note": str}],
+{"deals": [{"store": str, "title": str, "price": str or null, "amount": number or null,
+            "currency": str or null, "url": str, "details": str, "note": str}],
  "summary": str}
+price is the price as shown ("$499.99"); amount is the same price as a plain number (499.99)
+and currency its ISO 4217 code ("USD"). Use null for both if no price is shown.
+details lists what the results say that helps someone choose between items: dimensions,
+capacity, colours available, material, sizes, standout review points. Leave it empty rather
+than guess; the shopper may rely on it to check whether something fits.
 List at most 5 deals, cheapest credible offer first."""
 
 

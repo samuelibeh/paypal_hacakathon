@@ -6,7 +6,7 @@ from typing import Callable
 
 import boto3
 
-from app import config
+from app import config, events
 
 logger = logging.getLogger(__name__)
 
@@ -58,10 +58,14 @@ class LLM:
 
             results = []
             for block in message["content"]:
+                if block.get("text", "").strip():  # what the model says before using tools
+                    events.emit("note", text=block["text"].strip())
                 if "toolUse" not in block:
                     continue
                 call = block["toolUse"]
-                output, status = self._call(tools, call["name"], call["input"])
+                with events.step(call["name"], call["input"]) as outcome:
+                    output, status = self._call(tools, call["name"], call["input"])
+                    outcome.update(status=status, output=output)
                 trace.append({"tool": call["name"], "input": call["input"], "output": output})
                 results.append({
                     "toolResult": {

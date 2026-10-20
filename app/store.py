@@ -1,4 +1,5 @@
-"""MongoDB storage: user memory ("storage" in the diagram) and contact vectors."""
+"""MongoDB storage: user memory ("storage" in the diagram), contact vectors, and the
+deals, cart and PayPal orders used at checkout."""
 
 import uuid
 from datetime import datetime, timezone
@@ -23,6 +24,11 @@ class Store:
         self.users = db["users"]
         self.contacts = db["contacts"]
         self.contacts.create_index("user_id")
+        self.deals = db["deals"]
+        self.deals.create_index([("user_id", 1), ("deal_id", 1)])
+        self.carts = db["carts"]
+        self.orders = db["orders"]
+        self.orders.create_index("order_id", unique=True)
 
     # --- user memory -----------------------------------------------------
 
@@ -84,6 +90,45 @@ class Store:
                 hits.append({**doc, "score": cosine(query_vec, vec)})
             hits.sort(key=lambda h: h["score"], reverse=True)
         return [h for h in hits if h["score"] >= threshold][:limit]
+
+    # --- deals, cart and orders ----------------------------------------------
+
+    def save_deals(self, user_id: str, deals: list[dict]) -> list[dict]:
+        """Store deals shown to a user, giving each a short id the model and UI can refer to."""
+        saved = [{**d, "deal_id": uuid.uuid4().hex[:8]} for d in deals]
+        if saved:
+            self.deals.insert_many([{**d, "user_id": user_id, "created_at": _now()} for d in saved])
+        return saved
+
+    def get_deal(self, user_id: str, deal_id: str) -> dict | None:
+        return self.deals.find_one({"user_id": user_id, "deal_id": deal_id}, _DEAL_FIELDS)
+
+    def add_to_cart(self, user_id: str, deal_id: str) -> None:
+        self.carts.update_one({"user_id": user_id}, {"$addToSet": {"deal_ids": deal_id}}, upsert=True)
+
+    def remove_from_cart(self, user_id: str, deal_ids: list[str]) -> None:
+        self.carts.update_one({"user_id": user_id}, {"$pull": {"deal_ids": {"$in": deal_ids}}})
+
+    def get_cart(self, user_id: str) -> list[dict]:
+        ids = (self.carts.find_one({"user_id": user_id}) or {}).get("deal_ids", [])
+        found = self.deals.find({"user_id": user_id, "deal_id": {"$in": ids}}, _DEAL_FIELDS)
+        by_id = {d["deal_id"]: d for d in found}
+        return [by_id[i] for i in ids if i in by_id]
+
+    def save_order(self, user_id: str, order_id: str, deal_ids: list[str], total: str, currency: str) -> None:
+        self.orders.insert_one({
+            "order_id": order_id, "user_id": user_id, "deal_ids": deal_ids,
+            "total": total, "currency": currency, "status": "CREATED", "created_at": _now(),
+        })
+
+    def get_order(self, order_id: str) -> dict | None:
+        return self.orders.find_one({"order_id": order_id}, {"_id": 0})
+
+    def update_order(self, order_id: str, **fields) -> None:
+        self.orders.update_one({"order_id": order_id}, {"$set": {**fields, "updated_at": _now()}})
+
+
+_DEAL_FIELDS = {"_id": 0, "user_id": 0, "created_at": 0}
 
 
 def _now():

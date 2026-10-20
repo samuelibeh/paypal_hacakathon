@@ -1,0 +1,954 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shopping Agent</title>
+<style>
+  :root {
+    --bg: #f4f6f9; --surface: #ffffff; --surface-2: #eef2f7; --border: #dce3eb;
+    --text: #14202e; --muted: #5b6b7d; --accent: #0b5fd6; --accent-text: #ffffff;
+    --accent-soft: #e4eefc; --ok: #1a7f4b; --warn: #a15c00; --err: #b42318; --err-soft: #fdecea;
+    --radius: 12px; --shadow: 0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e141b; --surface: #16202b; --surface-2: #1d2936; --border: #2a3746;
+      --text: #e6edf3; --muted: #93a4b6; --accent: #4c9bff; --accent-text: #06121f;
+      --accent-soft: #17304f; --ok: #4ccb8a; --warn: #f0b35a; --err: #ff8a7e; --err-soft: #3a1d1d;
+      --shadow: none;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; display: flex; flex-direction: column; height: 100vh;
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text);
+  }
+  button, input, textarea { font: inherit; color: inherit; }
+  a { color: var(--accent); }
+  [hidden] { display: none !important; }
+  .muted { color: var(--muted); }
+
+  /* header */
+  .top {
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    padding: 12px 20px; background: var(--surface); border-bottom: 1px solid var(--border);
+  }
+  .brand { font-weight: 700; font-size: 17px; display: flex; align-items: center; gap: 8px; }
+  .brand .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+  .status { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
+  .chip {
+    font-size: 12px; padding: 2px 9px; border-radius: 999px;
+    background: var(--surface-2); color: var(--muted); border: 1px solid var(--border);
+  }
+  .chip.ok::before, .chip.off::before {
+    content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+    margin-right: 6px; vertical-align: 1px;
+  }
+  .chip.ok::before { background: var(--ok); }
+  .chip.off::before { background: var(--warn); }
+  .user { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+  .user input { width: 150px; }
+
+  /* controls */
+  input[type=text], textarea {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 10px; outline: none; width: 100%;
+  }
+  input[type=text]:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  input:disabled { opacity: .55; }
+  .btn {
+    border: 1px solid transparent; border-radius: 8px; padding: 8px 14px; cursor: pointer;
+    background: var(--accent); color: var(--accent-text); font-weight: 600; white-space: nowrap;
+  }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btn.ghost { background: transparent; color: var(--text); border-color: var(--border); font-weight: 500; }
+  .btn.ghost:hover:not(:disabled) { background: var(--surface-2); }
+  .btn.small { padding: 4px 10px; font-size: 13px; }
+  .link { background: none; border: none; color: var(--accent); cursor: pointer; padding: 0; font-size: 13px; }
+
+  /* layout */
+  .layout {
+    flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 380px;
+    gap: 16px; padding: 16px 20px;
+  }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    box-shadow: var(--shadow); display: flex; flex-direction: column; min-height: 0;
+  }
+  .card-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+  }
+  .card-head h2 { margin: 0; font-size: 15px; }
+
+  /* chat */
+  .messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .msg { max-width: 85%; padding: 10px 14px; border-radius: 14px; overflow-wrap: anywhere; }
+  .msg.user { align-self: flex-end; background: var(--accent); color: var(--accent-text); border-bottom-right-radius: 4px; white-space: pre-wrap; }
+  .msg.bot { align-self: flex-start; background: var(--surface-2); border-bottom-left-radius: 4px; width: 85%; }
+  .msg.error { align-self: flex-start; background: var(--err-soft); color: var(--err); border: 1px solid currentColor; }
+  .md p { margin: 0 0 8px; } .md p:last-child { margin-bottom: 0; }
+  .md ul, .md ol { margin: 4px 0 8px; padding-left: 20px; }
+  .spinner {
+    width: 14px; height: 14px; border-radius: 50%; flex: none;
+    border: 2px solid var(--border); border-top-color: var(--accent); animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .empty { margin: auto; text-align: center; max-width: 420px; color: var(--muted); }
+  .empty h3 { color: var(--text); margin: 0 0 6px; font-size: 18px; }
+  .suggestions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 14px; }
+
+  .composer { border-top: 1px solid var(--border); padding: 12px 16px; display: grid; gap: 8px; }
+  .loc-row { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
+  .loc-row label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .loc-row input[type=text] { padding: 5px 9px; max-width: 260px; }
+  .input-row { display: flex; gap: 8px; align-items: flex-end; }
+  .input-row textarea { resize: none; max-height: 160px; }
+
+  /* results inside a reply */
+  .section-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 14px 0 6px; }
+  .deals { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
+  .deal, .contact { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+  .deal-store { font-size: 12px; color: var(--muted); font-weight: 600; }
+  .deal-title { font-size: 13px; margin: 2px 0 6px; }
+  .deal-price { font-size: 17px; font-weight: 700; }
+  .deal-note { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .deal a { display: inline-block; margin-top: 6px; font-size: 13px; font-weight: 600; text-decoration: none; }
+  .cards { display: grid; gap: 8px; }
+  .contact-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .contact p { margin: 4px 0; font-size: 13px; }
+  .contact-meta { font-size: 12px; color: var(--muted); }
+  .score { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
+  /* live progress timeline */
+  .timeline { position: relative; display: grid; gap: 2px; font-size: 13px; }
+  .timeline::before {
+    content: ""; position: absolute; left: 4.5px; top: 12px; bottom: 12px; width: 1px; background: var(--border);
+  }
+  .tl-children { margin-left: 22px; }
+  .tl-children:empty { display: none; }
+  .tl-step > details > summary, .tl-thinking {
+    display: flex; align-items: center; gap: 8px; padding: 3px 0; min-width: 0; list-style: none;
+  }
+  .tl-step > details > summary { cursor: pointer; }
+  .tl-step > details > summary::-webkit-details-marker { display: none; }
+  .tl-thinking { color: var(--muted); }
+  .tl-dot {
+    position: relative; width: 10px; height: 10px; border-radius: 50%; flex: none;
+    background: var(--muted); box-shadow: 0 0 0 3px var(--surface-2);
+  }
+  .tl-dot.ok { background: var(--ok); }
+  .tl-dot.err { background: var(--err); }
+  .tl-dot.running {
+    background: var(--surface-2); border: 2px solid var(--border); border-top-color: var(--accent);
+    animation: spin .8s linear infinite;
+  }
+  .tl-label { font-weight: 600; white-space: nowrap; }
+  .tl-query {
+    font-size: 12px; padding: 0 6px; border-radius: 4px; min-width: 0;
+    background: var(--surface); border: 1px solid var(--border);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .tl-status { color: var(--muted); white-space: nowrap; }
+  .tl-note { color: var(--muted); font-style: italic; padding: 2px 0 2px 18px; }
+  .tl-body pre {
+    margin: 4px 0 6px 18px; padding: 8px; max-height: 180px; overflow: auto; font-size: 12px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 6px; white-space: pre-wrap;
+  }
+  .worklog { margin-bottom: 10px; }
+  .worklog > summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+  .worklog > .timeline { margin-top: 6px; }
+
+  /* side panel */
+  .tabs { display: flex; border-bottom: 1px solid var(--border); padding: 0 8px; }
+  .tabs button {
+    background: none; border: none; padding: 12px 12px 10px; cursor: pointer; color: var(--muted);
+    border-bottom: 2px solid transparent; font-weight: 600;
+  }
+  .tabs button.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .panel { flex: 1; overflow-y: auto; padding: 16px; display: grid; gap: 12px; align-content: start; }
+  .row { display: flex; gap: 8px; }
+  .hint { font-size: 12px; color: var(--muted); margin: 0; }
+  .error-text { color: var(--err); font-size: 13px; margin: 0; }
+  .ok-text { color: var(--ok); font-size: 13px; margin: 0; }
+  .import-row { border: 1px solid var(--border); border-radius: 10px; padding: 10px; display: grid; gap: 6px; position: relative; }
+  .import-row .remove { position: absolute; top: 6px; right: 8px; }
+  .import-row .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .check { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; }
+  .check input { margin-top: 4px; }
+  dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; }
+  dt { color: var(--muted); font-size: 13px; }
+  dd { margin: 0; }
+
+  /* deal selection */
+  .deal { display: flex; flex-direction: column; }
+  .deal-details { font-size: 12px; margin-top: 4px; }
+  .deal-actions { display: flex; align-items: center; gap: 10px; margin-top: auto; padding-top: 8px; }
+  .deal-actions a { margin-top: 0; }
+  .deal.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+
+  /* cart */
+  .cart-item { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .cart-item:last-child { border-bottom: none; }
+  .cart-price { font-weight: 700; white-space: nowrap; }
+  .cart-total { display: flex; justify-content: space-between; font-weight: 700; font-size: 16px; padding-top: 4px; }
+  #paypalButtons { min-height: 48px; }
+  .count { font-size: 11px; background: var(--accent); color: var(--accent-text); border-radius: 999px; padding: 0 6px; margin-left: 4px; vertical-align: 1px; }
+
+  /* photo attachments */
+  .attach { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+  .attach img { width: 44px; height: 44px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); }
+  .msg.user img { display: block; max-width: 220px; max-height: 220px; border-radius: 8px; margin-bottom: 6px; }
+  .icon-btn { padding: 8px 10px; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 10;
+    max-width: min(520px, calc(100vw - 32px)); padding: 10px 14px; border-radius: 10px;
+    background: var(--text); color: var(--bg); font-size: 14px; box-shadow: 0 4px 16px rgba(0,0,0,.2);
+  }
+  .toast.error { background: var(--err); color: #fff; }
+
+  @media (max-width: 860px) {
+    body { height: auto; }
+    .layout { grid-template-columns: 1fr; padding: 12px 16px; }
+    .chat { height: 75vh; }
+    .side { min-height: 420px; }
+    .msg, .msg.bot { max-width: 100%; width: 100%; }
+    .msg.user { width: auto; }
+    .top { padding: 10px 16px; }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="dot"></span>Shopping Agent</div>
+  <div class="status" id="status"><span class="chip">Checking API…</span></div>
+  <label class="user">User ID <input type="text" id="userId" autocomplete="off"></label>
+</header>
+
+<main class="layout">
+  <section class="card chat">
+    <div class="card-head">
+      <h2>Chat</h2>
+      <button class="btn ghost small" id="resetBtn" title="Clear this user's conversation on the server">New chat</button>
+    </div>
+    <div class="messages" id="messages"></div>
+    <form class="composer" id="chatForm">
+      <div class="loc-row">
+        <label><input type="checkbox" id="shareLoc"> Share my location</label>
+        <input type="text" id="location" placeholder="e.g. Lagos, Nigeria" disabled>
+      </div>
+      <div class="attach" id="attachPreview" hidden></div>
+      <div class="input-row">
+        <button class="btn ghost icon-btn" type="button" id="attachBtn" title="Attach a photo (the space, your outfit, the room…)">📷</button>
+        <input type="file" id="fileInput" accept="image/*" hidden>
+        <textarea id="msg" rows="1" placeholder="Where can I buy a fridge?"></textarea>
+        <button class="btn" id="sendBtn">Send</button>
+      </div>
+    </form>
+  </section>
+
+  <aside class="card side">
+    <nav class="tabs">
+      <button data-tab="cart" class="active">Cart<span class="count" id="cartCount" hidden></span></button>
+      <button data-tab="contacts">Contacts</button>
+      <button data-tab="import">Import</button>
+      <button data-tab="profile">Profile</button>
+    </nav>
+
+    <div class="panel" id="tab-cart">
+      <div id="cartItems"></div>
+      <div id="cartFooter" style="display: grid; gap: 12px;" hidden>
+        <div class="cart-total"><span>Total</span><span id="cartTotal"></span></div>
+        <div id="paypalButtons"></div>
+      </div>
+      <div id="cartStatus"></div>
+    </div>
+
+    <div class="panel" id="tab-contacts" hidden>
+      <form class="row" id="searchForm">
+        <input type="text" id="need" placeholder="Search by need, e.g. fridge">
+        <button class="btn ghost">Search</button>
+      </form>
+      <div class="row" style="justify-content: space-between; align-items: center;">
+        <p class="hint" id="contactsLabel">All contacts</p>
+        <button class="link" id="showAll" hidden>Show all</button>
+      </div>
+      <div class="cards" id="contactList"></div>
+    </div>
+
+    <div class="panel" id="tab-import" hidden>
+      <p class="hint">Add contacts with a note about what they do. The agent writes a short shopping profile for each one, then matches them to what you're looking for.</p>
+      <div id="importRows" style="display: grid; gap: 8px;"></div>
+      <div class="row">
+        <button class="btn ghost small" id="addRow">+ Add contact</button>
+        <button class="btn ghost small" id="loadSample">Load samples</button>
+      </div>
+      <label class="check">
+        <input type="checkbox" id="enrich">
+        <span>Also search the web about each contact<br>
+          <span class="hint">Sends their names to Tavily. Only turn this on with their consent.</span></span>
+      </label>
+      <button class="btn" id="importBtn">Import contacts</button>
+      <div id="importStatus"></div>
+    </div>
+
+    <div class="panel" id="tab-profile" hidden>
+      <div class="row" style="justify-content: space-between; align-items: center;">
+        <p class="hint">What the agent has remembered about this user.</p>
+        <button class="btn ghost small" id="refreshProfile">Refresh</button>
+      </div>
+      <div id="profile"></div>
+    </div>
+  </aside>
+</main>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const local = {
+  get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+};
+
+const SAMPLE_CONTACTS = [
+  { name: "Morris Adeyemi", phone: "+234 800 000 0001", notes: "runs an appliance shop in Ikeja, sells fridges and ACs" },
+  { name: "Bob Okafor", phone: "+234 800 000 0002", notes: "bought a new Samsung fridge last month" },
+  { name: "Jessica Eze", phone: "+234 800 000 0003", notes: "wedding photographer" },
+];
+const SUGGESTIONS = ["Where can I buy a fridge?", "I need a cheap laptop for school", "Who can fix my AC?"];
+
+// ---------- helpers ----------
+
+function h(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v == null || v === false) continue;
+    if (k === "class") e.className = v;
+    else if (k === "html") e.innerHTML = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v === true ? "" : v);
+  }
+  for (const c of kids.flat()) if (c != null && c !== false) e.append(c instanceof Node ? c : String(c));
+  return e;
+}
+
+const uid = () => $("#userId").value.trim() || "demo-user";
+const uidPath = () => encodeURIComponent(uid());
+const safeUrl = (u) => (/^https?:\/\//i.test(u || "") ? u : null);
+const truncate = (s, n) => (s.length > n ? s.slice(0, n) + "…" : s);
+let payCurrency = "USD";
+
+function fmtMoney(value, currency) {
+  try { return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(Number(value)); }
+  catch { return `${value} ${currency}`; }
+}
+
+let toastTimer;
+function toast(message, isError = false) {
+  const t = $("#toast");
+  t.textContent = message;
+  t.className = `toast${isError ? " error" : ""}`;
+  t.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.hidden = true; }, isError ? 7000 : 3500);
+}
+
+const loadScript = (src) => new Promise((resolve, reject) => {
+  const s = document.createElement("script");
+  s.src = src;
+  s.onload = resolve;
+  s.onerror = () => reject(new Error("Couldn't load the PayPal SDK. Check your connection and the client id."));
+  document.head.append(s);
+});
+
+async function request(path, opts = {}) {
+  try {
+    return await fetch(path, { headers: { "Content-Type": "application/json" }, ...opts });
+  } catch {
+    throw new Error("Can't reach the API. Is uvicorn running?");
+  }
+}
+
+function httpError(status, data) {
+  const detail = typeof data === "object" && data ? data.detail ?? data : data;
+  const message = typeof detail === "string" ? detail : JSON.stringify(detail);
+  return new Error(status >= 500 ? `Server error ${status}: ${message}. Check the uvicorn terminal for details.` : message);
+}
+
+async function api(path, opts = {}) {
+  const res = await request(path, opts);
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); } catch { data = text; }
+  if (!res.ok) throw httpError(res.status, data);
+  return data;
+}
+
+// POST /chat/stream and pass each progress event to onEvent; resolves with the final reply.
+async function streamChat(body, onEvent) {
+  const res = await request("/chat/stream", { method: "POST", body: JSON.stringify(body) });
+  if (!res.ok) {
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch { data = text; }
+    throw httpError(res.status, data);
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let end;
+    while ((end = buffer.indexOf("\n\n")) >= 0) {
+      const chunk = buffer.slice(0, end);
+      buffer = buffer.slice(end + 2);
+      const data = chunk.split("\n").filter((l) => l.startsWith("data:")).map((l) => l.slice(5).trim()).join("\n");
+      if (!data) continue;
+      const event = JSON.parse(data);
+      if (event.type === "done") return event;
+      if (event.type === "error") throw new Error(`${event.detail}. Check the uvicorn terminal for details.`);
+      onEvent(event);
+    }
+  }
+  throw new Error("The connection closed before the reply arrived.");
+}
+
+// Minimal, escape-first markdown: paragraphs, lists, **bold**, links.
+function md(text) {
+  const esc = (s) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const inline = (s) => esc(s)
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>')
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  const out = [];
+  let list = null, para = [];
+  const flushPara = () => { if (para.length) out.push(`<p>${para.join("<br>")}</p>`); para = []; };
+  const flushList = () => { if (list) out.push(`<${list.tag}>${list.items.map((i) => `<li>${i}</li>`).join("")}</${list.tag}>`); list = null; };
+  for (const raw of text.split("\n")) {
+    const line = raw.trim();
+    const bullet = line.match(/^[-*•]\s+(.*)/), numbered = line.match(/^\d+[.)]\s+(.*)/);
+    if (bullet || numbered) {
+      flushPara();
+      const tag = bullet ? "ul" : "ol";
+      if (!list || list.tag !== tag) { flushList(); list = { tag, items: [] }; }
+      list.items.push(inline((bullet || numbered)[1]));
+    } else if (!line) {
+      flushPara(); flushList();
+    } else {
+      flushList();
+      const heading = line.match(/^#{1,4}\s+(.*)/);
+      para.push(heading ? `<strong>${inline(heading[1])}</strong>` : inline(line));
+    }
+  }
+  flushPara(); flushList();
+  return out.join("");
+}
+
+// ---------- health ----------
+
+async function loadHealth() {
+  try {
+    const s = await api("/health");
+    payCurrency = s.paypal_currency || payCurrency;
+    $("#status").replaceChildren(
+      h("span", { class: `chip ${s.paypal ? "ok" : "off"}` }, s.paypal ? `PayPal ${s.paypal_env}` : "PayPal not set up"),
+      h("span", { class: `chip ${s.storage === "mongodb" ? "ok" : "off"}`, title: s.storage === "mongodb" ? "" : "Data is lost when the server restarts" }, `Storage: ${s.storage}`),
+      h("span", { class: `chip ${s.web_search ? "ok" : "off"}` }, s.web_search ? "Web search on" : "Web search off"),
+      h("span", { class: "chip" }, s.embedding_model.split("/").pop()),
+    );
+  } catch {
+    $("#status").replaceChildren(h("span", { class: "chip off" }, "API unreachable"));
+  }
+}
+
+// ---------- chat ----------
+
+const messages = $("#messages");
+const sendBtn = $("#sendBtn");
+const msgInput = $("#msg");
+let busy = false;
+
+function showEmpty() {
+  messages.replaceChildren(h("div", { class: "empty", id: "empty" },
+    h("h3", {}, "What are you shopping for?"),
+    "I'll find the best deals and check whether anyone in your contacts sells, repairs or recently bought it.",
+    h("div", { class: "suggestions" }, SUGGESTIONS.map((s) => h("button", { class: "btn ghost small", type: "button", onclick: () => send(s) }, s))),
+  ));
+}
+
+function addMsg(node) {
+  $("#empty")?.remove();
+  messages.append(node);
+  messages.scrollTop = messages.scrollHeight;
+  return node;
+}
+
+function dealCard(d, i) {
+  const url = safeUrl(d.url);
+  const canSelect = d.payable && d.deal_id;
+  return h("div", { class: "deal", "data-deal-id": d.deal_id || null },
+    h("div", { class: "deal-store" }, `#${i + 1} · ${d.store || "Store"}`),
+    d.title ? h("div", { class: "deal-title" }, d.title) : null,
+    h("div", { class: "deal-price" }, d.price || "Price not listed"),
+    d.details ? h("div", { class: "deal-details" }, d.details) : null,
+    d.note ? h("div", { class: "deal-note" }, d.note) : null,
+    !canSelect && d.price ? h("div", { class: "deal-note" }, `Pay on the store's site (in-app checkout takes ${payCurrency} only)`) : null,
+    h("div", { class: "deal-actions" },
+      canSelect ? h("button", { class: "btn small select-btn", type: "button", onclick: () => toggleSelect(d.deal_id) }, "Select") : null,
+      url ? h("a", { href: url, target: "_blank", rel: "noopener" }, "View ↗") : null,
+    ),
+  );
+}
+
+function contactCard(c) {
+  const meta = [c.phone, c.email].filter(Boolean).join(" · ");
+  return h("div", { class: "contact" },
+    h("div", { class: "contact-head" },
+      h("strong", {}, c.name),
+      typeof c.score === "number" ? h("span", { class: "score", title: "Cosine similarity between the need and this contact's profile" }, `match ${c.score.toFixed(2)}`) : null,
+    ),
+    c.profile ? h("p", {}, c.profile) : null,
+    meta ? h("div", { class: "contact-meta" }, meta) : null,
+  );
+}
+
+// ---------- live progress ----------
+
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+const STEP_LABELS = {
+  get_profile: () => "Checking what I know about you",
+  remember: (i) => `Remembering your ${i.key || "details"}`,
+  find_deals: (i) => `Finding deals on ${i.product || "that"}${i.location ? ` near ${i.location}` : ""}`,
+  web_search: () => "Searching the web",
+  find_contacts: (i) => `Checking your contacts for ${i.need || "help"}`,
+  add_to_cart: () => "Adding it to your cart",
+};
+const stepLabel = (tool, input) => (STEP_LABELS[tool] || (() => `Running ${tool}`))(input || {});
+
+function stepSummary(tool, output, status) {
+  if (status === "error") return truncate(String(output), 140);
+  if (tool === "web_search" && Array.isArray(output)) return plural(output.length, "result");
+  if (tool === "find_deals") return output?.deals?.length ? `${plural(output.deals.length, "deal")} found` : "No deals found";
+  if (tool === "find_contacts" && Array.isArray(output)) return output.length ? `${plural(output.length, "contact")} could help` : "No matching contacts";
+  if (tool === "get_profile") return Object.keys(output || {}).length ? plural(Object.keys(output).length, "saved fact") : "Nothing saved yet";
+  if (tool === "add_to_cart" && output?.total) return `Cart total ${fmtMoney(output.total, output.currency)}`;
+  return "Done";
+}
+
+// A Claude Code style log of what the agent is doing. Sub-agent steps nest under the
+// step that started them (the deal finder's searches sit under "Finding deals").
+function createTimeline() {
+  const root = h("div", { class: "timeline" });
+  const thinking = h("div", { class: "tl-thinking" }, h("span", { class: "tl-dot running" }), "Thinking…");
+  const steps = new Map();
+  const started = Date.now();
+  let running = 0;
+
+  const container = (parent) => steps.get(parent)?.children || root;
+  const refresh = () => { thinking.hidden = running > 0; root.append(thinking); };
+  refresh();
+
+  return {
+    el: root,
+    handle(ev) {
+      if (ev.type === "note") {
+        container(ev.parent).append(h("div", { class: "tl-note" }, ev.text));
+      } else if (ev.type === "step") {
+        running++;
+        const dot = h("span", { class: "tl-dot running" });
+        const status = h("span", { class: "tl-status" });
+        const body = h("div", { class: "tl-body" }, h("pre", {}, JSON.stringify(ev.input, null, 2)));
+        const children = h("div", { class: "timeline tl-children" });
+        container(ev.parent).append(h("div", { class: "tl-step" },
+          h("details", {},
+            h("summary", {}, dot, h("span", { class: "tl-label" }, stepLabel(ev.tool, ev.input)),
+              ev.input?.query ? h("code", { class: "tl-query" }, ev.input.query) : null, status),
+            body),
+          children));
+        steps.set(ev.id, { dot, status, body, children, started: Date.now() });
+      } else if (ev.type === "step_done") {
+        const s = steps.get(ev.id);
+        if (!s) return;
+        running--;
+        s.dot.className = `tl-dot ${ev.status === "error" ? "err" : "ok"}`;
+        s.status.textContent = `· ${stepSummary(ev.tool, ev.output, ev.status)} · ${((Date.now() - s.started) / 1000).toFixed(1)}s`;
+        s.body.append(h("pre", {}, truncate(typeof ev.output === "string" ? ev.output : JSON.stringify(ev.output, null, 2), 3000)));
+      }
+      refresh();
+    },
+    // Collapse into "Worked for 12s · 8 steps" once the reply is in.
+    finish() {
+      thinking.remove();
+      if (!steps.size) return null;
+      const secs = Math.max(1, Math.round((Date.now() - started) / 1000));
+      return h("details", { class: "worklog" }, h("summary", {}, `Worked for ${secs}s · ${plural(steps.size, "step")}`), root);
+    },
+  };
+}
+
+function renderReply({ reply, tool_calls = [] }, worklog) {
+  const box = h("div", { class: "msg bot" }, worklog, h("div", { class: "md", html: md(reply || "(no reply)") }));
+  const last = (pred) => [...tool_calls].reverse().find(pred);
+
+  const deals = last((c) => c.tool === "find_deals" && Array.isArray(c.output?.deals))?.output.deals;
+  if (deals?.length) box.append(h("div", { class: "section-label" }, "Deals"), h("div", { class: "deals" }, deals.map((d, i) => dealCard(d, i))));
+
+  const contacts = last((c) => c.tool === "find_contacts" && Array.isArray(c.output))?.output;
+  if (contacts?.length) box.append(h("div", { class: "section-label" }, "Contacts who could help"), h("div", { class: "cards" }, contacts.map(contactCard)));
+  return box;
+}
+
+async function send(text) {
+  text = text.trim();
+  const image = attached;
+  if ((!text && !image) || busy) return;
+  if (!text) text = "Here's a photo.";
+  busy = true;
+  sendBtn.disabled = true;
+  msgInput.value = "";
+  autoGrow();
+  clearAttachment();
+  addMsg(h("div", { class: "msg user" }, image ? h("img", { src: image.preview, alt: "Attached photo" }) : null, text));
+  const log = createTimeline();
+  const pending = addMsg(h("div", { class: "msg bot" }, log.el));
+
+  const body = { user_id: uid(), message: text };
+  const loc = $("#location").value.trim();
+  if ($("#shareLoc").checked && loc) body.location = loc;
+  if (image) body.image = { media_type: image.media_type, data: image.data };
+
+  try {
+    const out = await streamChat(body, (ev) => {
+      log.handle(ev);
+      messages.scrollTop = messages.scrollHeight;
+    });
+    pending.replaceWith(renderReply(out, log.finish()));
+    syncSelected();
+    loadCart();  // the agent may have added something
+    loadProfile();
+  } catch (e) {
+    const worklog = log.finish();
+    pending.replaceWith(...[worklog && h("div", { class: "msg bot" }, worklog), h("div", { class: "msg error" }, e.message)].filter(Boolean));
+  } finally {
+    busy = false;
+    sendBtn.disabled = false;
+    messages.scrollTop = messages.scrollHeight;
+    msgInput.focus();
+  }
+}
+
+function autoGrow() {
+  msgInput.style.height = "auto";
+  msgInput.style.height = Math.min(msgInput.scrollHeight, 160) + "px";
+}
+
+$("#chatForm").addEventListener("submit", (e) => { e.preventDefault(); send(msgInput.value); });
+msgInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(msgInput.value); }
+});
+msgInput.addEventListener("input", autoGrow);
+
+$("#resetBtn").addEventListener("click", async () => {
+  try { await api(`/chat/${uidPath()}/reset`, { method: "POST" }); } catch {}
+  showEmpty();
+});
+
+$("#shareLoc").addEventListener("change", (e) => {
+  $("#location").disabled = !e.target.checked;
+  local.set("shareLoc", e.target.checked ? "1" : "");
+  if (e.target.checked) $("#location").focus();
+});
+$("#location").addEventListener("change", (e) => local.set("location", e.target.value));
+
+// ---------- photo attachments ----------
+
+let attached = null;  // { media_type, data (base64), preview (data URL) }
+
+// Re-encode as JPEG, at most 1568px on the long side: under Bedrock's 3.75 MB limit,
+// and about the largest size Claude looks at anyway.
+async function shrinkImage(file) {
+  const bmp = await createImageBitmap(file);
+  const scale = Math.min(1, 1568 / Math.max(bmp.width, bmp.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bmp.width * scale);
+  canvas.height = Math.round(bmp.height * scale);
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#fff";  // JPEG has no transparency
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+  const url = canvas.toDataURL("image/jpeg", 0.85);
+  return { media_type: "image/jpeg", data: url.split(",")[1], preview: url };
+}
+
+function clearAttachment() {
+  attached = null;
+  $("#attachPreview").hidden = true;
+  $("#attachPreview").replaceChildren();
+}
+
+$("#attachBtn").addEventListener("click", () => $("#fileInput").click());
+$("#fileInput").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  if (!file.type.startsWith("image/")) return toast("Pick an image file.", true);
+  try {
+    attached = await shrinkImage(file);
+  } catch {
+    return toast("Couldn't read that image.", true);
+  }
+  $("#attachPreview").replaceChildren(
+    h("img", { src: attached.preview, alt: "" }),
+    "Photo attached",
+    h("button", { class: "link", type: "button", onclick: clearAttachment }, "Remove"),
+  );
+  $("#attachPreview").hidden = false;
+  msgInput.focus();
+});
+
+// ---------- cart and PayPal ----------
+
+let cart = { items: [], total: "0.00", currency: payCurrency };
+const inCart = (id) => cart.items.some((i) => i.deal_id === id);
+
+function syncSelected() {
+  document.querySelectorAll(".deal[data-deal-id]").forEach((card) => {
+    const on = inCart(card.dataset.dealId);
+    card.classList.toggle("selected", on);
+    const btn = card.querySelector(".select-btn");
+    if (btn) {
+      btn.textContent = on ? "✓ Selected" : "Select";
+      btn.classList.toggle("ghost", on);
+    }
+  });
+  $("#cartCount").textContent = cart.items.length;
+  $("#cartCount").hidden = !cart.items.length;
+}
+
+async function loadCart() {
+  try {
+    cart = await api(`/cart/${uidPath()}`);
+    renderCart();
+  } catch (e) {
+    $("#cartItems").replaceChildren(h("p", { class: "error-text" }, e.message));
+  }
+}
+
+async function toggleSelect(id) {
+  const removing = inCart(id);
+  try {
+    cart = removing
+      ? await api(`/cart/${uidPath()}/items/${encodeURIComponent(id)}`, { method: "DELETE" })
+      : await api(`/cart/${uidPath()}/items`, { method: "POST", body: JSON.stringify({ deal_id: id }) });
+    renderCart();
+    if (!removing) toast("Added to cart. Pay with PayPal from the Cart tab.");
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+function renderCart() {
+  syncSelected();
+  if (!cart.items.length) {
+    $("#cartItems").replaceChildren(h("p", { class: "hint" }, "Nothing selected yet. Tap Select on a deal, or tell the assistant which one you want."));
+    $("#cartFooter").hidden = true;
+    return;
+  }
+  $("#cartStatus").replaceChildren();
+  $("#cartItems").replaceChildren(...cart.items.map((i) => h("div", { class: "cart-item" },
+    h("div", {}, h("strong", {}, i.title || i.store), h("div", { class: "contact-meta" }, i.store)),
+    h("div", { class: "cart-price" }, fmtMoney(i.amount, cart.currency)),
+    h("button", { class: "link", type: "button", title: "Remove", onclick: () => toggleSelect(i.deal_id) }, "✕"),
+  )));
+  $("#cartTotal").textContent = fmtMoney(cart.total, cart.currency);
+  $("#cartFooter").hidden = false;
+  ensurePayPalButtons();
+}
+
+let paypalState = "idle";  // idle | loading | ready
+
+async function ensurePayPalButtons() {
+  if (paypalState !== "idle") return;
+  paypalState = "loading";
+  const box = $("#paypalButtons");
+  try {
+    const cfg = await api("/paypal/config");
+    if (!cfg.client_id) throw new Error("PayPal isn't set up yet. Add PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET to .env and restart the server.");
+    if (!window.paypal) {
+      await loadScript(`https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(cfg.client_id)}&currency=${cfg.currency}&intent=capture`);
+    }
+    box.replaceChildren();
+    await window.paypal.Buttons({
+      style: { layout: "vertical", shape: "rect", label: "pay" },
+      // The server builds the order from the stored cart, so prices can't be changed here.
+      createOrder: async () => (await api("/paypal/orders", { method: "POST", body: JSON.stringify({ user_id: uid() }) })).id,
+      onApprove: async (data) => {
+        try {
+          const res = await api(`/paypal/orders/${encodeURIComponent(data.orderID)}/capture`, {
+            method: "POST", body: JSON.stringify({ user_id: uid() }),
+          });
+          await loadCart();
+          $("#cartStatus").replaceChildren(res.status === "COMPLETED"
+            ? h("p", { class: "ok-text" }, `Paid ${fmtMoney(res.total, res.currency)} with PayPal. Reference ${res.capture_id}.`)
+            : h("p", { class: "error-text" }, `Payment status: ${res.status}. Your cart was kept.`));
+        } catch (e) {
+          $("#cartStatus").replaceChildren(h("p", { class: "error-text" }, e.message));
+        }
+      },
+      onCancel: () => toast("Payment cancelled. Your cart is still here."),
+      onError: (err) => $("#cartStatus").replaceChildren(h("p", { class: "error-text" }, err?.message || String(err))),
+    }).render("#paypalButtons");
+    paypalState = "ready";
+  } catch (e) {
+    paypalState = "idle";  // try again next time the cart renders
+    box.replaceChildren(h("p", { class: "error-text" }, e.message));
+  }
+}
+
+// ---------- contacts ----------
+
+async function loadContacts() {
+  $("#contactsLabel").textContent = "All contacts";
+  $("#showAll").hidden = true;
+  const list = $("#contactList");
+  try {
+    const { contacts } = await api(`/contacts/${uidPath()}`);
+    list.replaceChildren(...(contacts.length
+      ? contacts.map(contactCard)
+      : [h("p", { class: "hint" }, "No contacts yet. Add some in the Import tab.")]));
+  } catch (e) {
+    list.replaceChildren(h("p", { class: "error-text" }, e.message));
+  }
+}
+
+$("#searchForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const need = $("#need").value.trim();
+  if (!need) return loadContacts();
+  const list = $("#contactList");
+  $("#contactsLabel").textContent = `Best matches for “${need}”`;
+  $("#showAll").hidden = false;
+  list.replaceChildren(h("p", { class: "hint" }, "Searching…"));
+  try {
+    const { contacts } = await api(`/contacts/${uidPath()}/search?need=${encodeURIComponent(need)}`);
+    list.replaceChildren(...(contacts.length
+      ? contacts.map(contactCard)
+      : [h("p", { class: "hint" }, "No contact scored above the match threshold.")]));
+  } catch (err) {
+    list.replaceChildren(h("p", { class: "error-text" }, err.message));
+  }
+});
+$("#showAll").addEventListener("click", () => { $("#need").value = ""; loadContacts(); });
+
+// ---------- import ----------
+
+function addImportRow(c = {}) {
+  const row = h("div", { class: "import-row" },
+    h("button", { class: "link remove", type: "button", title: "Remove", onclick: () => row.remove() }, "✕"),
+    h("input", { type: "text", name: "name", placeholder: "Name (required)", value: c.name || "" }),
+    h("div", { class: "pair" },
+      h("input", { type: "text", name: "phone", placeholder: "Phone", value: c.phone || "" }),
+      h("input", { type: "text", name: "email", placeholder: "Email", value: c.email || "" }),
+    ),
+    h("textarea", { name: "notes", rows: "2", placeholder: "What do they do? e.g. sells phones in Yaba" }, c.notes || ""),
+  );
+  $("#importRows").append(row);
+}
+
+$("#addRow").addEventListener("click", () => addImportRow());
+$("#loadSample").addEventListener("click", () => {
+  $("#importRows").replaceChildren();
+  SAMPLE_CONTACTS.forEach(addImportRow);
+});
+
+$("#importBtn").addEventListener("click", async () => {
+  const status = $("#importStatus");
+  const contacts = [...document.querySelectorAll(".import-row")].map((row) => {
+    const get = (n) => row.querySelector(`[name=${n}]`).value.trim() || null;
+    return { name: get("name"), phone: get("phone"), email: get("email"), notes: get("notes") };
+  }).filter((c) => c.name);
+  if (!contacts.length) {
+    status.replaceChildren(h("p", { class: "error-text" }, "Add at least one contact with a name."));
+    return;
+  }
+
+  const btn = $("#importBtn");
+  btn.disabled = true;
+  btn.textContent = `Profiling ${contacts.length} contact${contacts.length > 1 ? "s" : ""}…`;
+  status.replaceChildren();
+  try {
+    const { imported } = await api("/contacts/import", {
+      method: "POST",
+      body: JSON.stringify({ user_id: uid(), contacts, enrich_with_web: $("#enrich").checked }),
+    });
+    status.replaceChildren(
+      h("p", { class: "ok-text" }, `Imported ${imported.length} contact${imported.length === 1 ? "" : "s"}.`),
+      ...imported.filter((c) => c.search_query).map((c) => h("p", { class: "hint" }, `${c.name}: searched ${c.search_query}`)),
+    );
+    $("#importRows").replaceChildren();
+    addImportRow();
+    showTab("contacts");
+    loadContacts();
+  } catch (e) {
+    status.replaceChildren(h("p", { class: "error-text" }, e.message));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Import contacts";
+  }
+});
+
+// ---------- profile ----------
+
+async function loadProfile() {
+  const box = $("#profile");
+  try {
+    const { facts } = await api(`/users/${uidPath()}/profile`);
+    const entries = Object.entries(facts || {});
+    box.replaceChildren(entries.length
+      ? h("dl", {}, entries.map(([k, v]) => [h("dt", {}, k), h("dd", {}, String(v))]))
+      : h("p", { class: "hint" }, "Nothing stored yet. Tell the agent your name, city or budget in chat."));
+  } catch (e) {
+    box.replaceChildren(h("p", { class: "error-text" }, e.message));
+  }
+}
+$("#refreshProfile").addEventListener("click", loadProfile);
+
+// ---------- tabs and user ----------
+
+function showTab(name) {
+  document.querySelectorAll(".tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
+  document.querySelectorAll(".panel").forEach((p) => { p.hidden = p.id !== `tab-${name}`; });
+  local.set("tab", name);
+}
+document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
+
+$("#userId").addEventListener("change", () => {
+  local.set("userId", uid());
+  showEmpty();
+  loadCart();
+  loadContacts();
+  loadProfile();
+});
+
+// ---------- init ----------
+
+$("#userId").value = local.get("userId", "demo-user");
+$("#location").value = local.get("location", "");
+if (local.get("shareLoc", "")) { $("#shareLoc").checked = true; $("#location").disabled = false; }
+showTab(local.get("tab", "cart"));
+addImportRow();
+showEmpty();
+loadHealth();
+loadCart();
+loadContacts();
+loadProfile();
+</script>
+</body>
+</html>
