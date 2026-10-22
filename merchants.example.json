@@ -1,0 +1,10 @@
+[
+  {
+    "id": "jumia",
+    "name": "Jumia",
+    "domains": ["jumia.com.ng"],
+    "paypal_email": "store-business@example.com",
+    "support_email": "support@example.com",
+    "receipt_senders": ["jumia.com.ng"]
+  }
+]

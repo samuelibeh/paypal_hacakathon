@@ -6,12 +6,17 @@ Tools available to the main agent:
   - find_deals              deal-finder sub-agent (Tavily, location-aware)
   - find_contacts           contact sub-agent (vector search over profiled contacts)
   - add_to_cart             put a deal the user chose into their cart for PayPal checkout
+  - get_purchases           paid orders and whether the store's receipt has arrived
+
+Paying and the receipt follow-up are the payment sub-agent's job (payment_agent.py); it runs
+when the user approves the PayPal payment, not from chat.
 """
 
 from app import checkout, config
 from app.agents.contact_agent import ContactAgent
 from app.agents.deal_agent import DealAgent
 from app.llm import LLM
+from app.merchants import Merchants
 from app.store import Store
 from app.tools.web_search import WEB_SEARCH_SPEC, web_search
 
@@ -51,8 +56,13 @@ reviews, prices or stores.
 A user message may end with a note listing items they selected in the app; treat those as the
 ones they're interested in. When the user clearly chooses an item ("I'll take the second
 one"), call add_to_cart with its deal_id and tell them they can pay with PayPal from the cart.
-Only deals priced in {config.PAYPAL_CURRENCY} can be paid in the app; for the others, give the
-store link.
+Only deals marked payable can be paid in the app: stores set up to take PayPal through it,
+priced in {config.PAYPAL_CURRENCY}, one store per payment. For the others, give the store link
+and the deal's unpayable_reason.
+
+After they pay, a payment assistant watches their Gmail for the store's receipt, emails the
+store on their behalf if none arrives, and sends them a notification either way. When they ask
+about an order or a receipt, call get_purchases.
 
 When the user tells you something worth keeping (name, budget, city, sizes, favourite colours,
 room dimensions), call remember.
@@ -69,12 +79,16 @@ def _label(deal: dict) -> str:
 
 
 class MainAgent:
-    def __init__(self, llm: LLM, store: Store, deals: DealAgent, contacts: ContactAgent, search=web_search):
+    def __init__(
+        self, llm: LLM, store: Store, deals: DealAgent, contacts: ContactAgent, search=web_search,
+        merchants: Merchants | None = None,
+    ):
         self.llm = llm
         self.store = store
         self.deals = deals
         self.contacts = contacts
         self.search = search
+        self.merchants = merchants
 
     def chat(
         self,
@@ -99,7 +113,7 @@ class MainAgent:
 
     def _find_deals(self, user_id: str, product: str, location: str | None) -> dict:
         result = self.deals.find_deals(product, location)
-        prepared = [checkout.prepare_deal(d) for d in result.get("deals", [])]
+        prepared = [checkout.prepare_deal(d, self.merchants) for d in result.get("deals", [])]
         return {**result, "deals": self.store.save_deals(user_id, prepared)}
 
     def _tools(self, user_id: str, location: str | None) -> dict:
@@ -137,5 +151,13 @@ class MainAgent:
                                 "with PayPal. Use the deal_id from find_deals.",
                  "inputSchema": _schema({"deal_id": str_prop}, ["deal_id"])},
                 lambda a: checkout.add_item(self.store, user_id, a["deal_id"]),
+            ),
+            "get_purchases": (
+                {"name": "get_purchases",
+                 "description": "The user's PayPal purchases, newest first, with whether each store has "
+                                "sent its receipt (status: awaiting_receipt, receipt_received, followed_up "
+                                "when we emailed the store, unconfirmed when it never replied).",
+                 "inputSchema": _schema({}, [])},
+                lambda a: self.store.list_purchases(user_id),
             ),
         }

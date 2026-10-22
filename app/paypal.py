@@ -28,12 +28,14 @@ class PayPal:
         self.http = http or httpx.Client(base_url=base_url, timeout=30)
         self._token, self._token_expiry = None, 0.0
 
-    def create_order(self, items: list[dict], currency: str, total: str) -> dict:
-        """items: [{"name", "amount"}], amounts already formatted as PayPal strings."""
+    def create_order(self, items: list[dict], currency: str, total: str, payee_email: str) -> dict:
+        """items: [{"name", "amount"}], amounts already formatted as PayPal strings.
+        payee_email is the store's PayPal account, which receives the money."""
         money = lambda value: {"currency_code": currency, "value": value}
         return self._post("/v2/checkout/orders", {
             "intent": "CAPTURE",
             "purchase_units": [{
+                "payee": {"email_address": payee_email},
                 "amount": {**money(total), "breakdown": {"item_total": money(total)}},
                 "items": [
                     {"name": i["name"][:127], "quantity": "1", "unit_amount": money(i["amount"])} for i in items

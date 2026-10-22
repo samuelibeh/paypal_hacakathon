@@ -6,25 +6,46 @@ import json
 import logging
 import queue
 import threading
+from contextlib import asynccontextmanager
 from functools import lru_cache
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from app import checkout, config, events
+from app import checkout, config, events, push
 from app.agents.contact_agent import ContactAgent
 from app.agents.deal_agent import DealAgent
 from app.agents.main_agent import MainAgent
+from app.agents.payment_agent import PaymentAgent
 from app.embeddings import get_embedder
+from app.gmail import Gmail, GmailError
 from app.llm import LLM
 from app.paypal import PayPal, PayPalError
 from app.store import get_store
 
 logger = logging.getLogger(__name__)
+STATIC = Path(__file__).parent / "static"
 
-app = FastAPI(title="PayPal Shopping Agent")
+
+def _watch_receipts(stop: threading.Event) -> None:
+    while not stop.wait(config.RECEIPT_POLL_SECONDS):
+        try:
+            get_payment_agent().check_due()
+        except Exception:
+            logger.exception("receipt check failed")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    stop = threading.Event()
+    threading.Thread(target=_watch_receipts, args=(stop,), daemon=True, name="receipt-watcher").start()
+    yield
+    stop.set()
+
+
+app = FastAPI(title="PayPal Shopping Agent", lifespan=lifespan)
 
 # Conversation history per user, kept in process memory.
 _sessions: dict[str, list] = {}
@@ -44,6 +65,16 @@ def get_paypal() -> PayPal:
     return PayPal()
 
 
+@lru_cache(maxsize=1)
+def get_gmail() -> Gmail:
+    return Gmail(get_store())
+
+
+@lru_cache(maxsize=1)
+def get_payment_agent() -> PaymentAgent:
+    return PaymentAgent(get_llm(), get_store(), get_gmail(), push.Notifier(get_store()))
+
+
 def get_contact_agent() -> ContactAgent:
     return ContactAgent(get_llm(), get_store(), get_embedder())
 
@@ -60,6 +91,11 @@ def checkout_error(request: Request, exc: checkout.CheckoutError):
 @app.exception_handler(PayPalError)
 def paypal_error(request: Request, exc: PayPalError):
     return JSONResponse(status_code=exc.status_code, content={"detail": str(exc)})
+
+
+@app.exception_handler(GmailError)
+def gmail_error(request: Request, exc: GmailError):
+    return JSONResponse(status_code=400, content={"detail": str(exc)})
 
 
 class ImageIn(BaseModel):
@@ -95,6 +131,21 @@ class CheckoutRequest(BaseModel):
     user_id: str
 
 
+class PushKeys(BaseModel):
+    p256dh: str
+    auth: str
+
+
+class PushSubscription(BaseModel):
+    endpoint: str
+    keys: PushKeys
+
+
+class PushSubscribeRequest(BaseModel):
+    user_id: str
+    subscription: PushSubscription
+
+
 def _decode_image(image: ImageIn) -> tuple[str, bytes]:
     fmt = IMAGE_FORMATS.get(image.media_type)
     if not fmt:
@@ -110,7 +161,13 @@ def _decode_image(image: ImageIn) -> tuple[str, bytes]:
 
 @app.get("/", include_in_schema=False)
 def index():
-    return FileResponse(Path(__file__).parent / "static" / "index.html")
+    return FileResponse(STATIC / "index.html")
+
+
+@app.get("/sw.js", include_in_schema=False)
+def service_worker():
+    """Served from the root so it can show notifications for the whole app."""
+    return FileResponse(STATIC / "sw.js", media_type="text/javascript")
 
 
 @app.get("/health")
@@ -123,6 +180,8 @@ def health():
         "paypal": bool(config.PAYPAL_CLIENT_ID and config.PAYPAL_CLIENT_SECRET),
         "paypal_env": config.PAYPAL_ENV,
         "paypal_currency": config.PAYPAL_CURRENCY,
+        "gmail": get_gmail().configured,
+        "push": push.configured(),
     }
 
 
@@ -217,4 +276,52 @@ def create_paypal_order(req: CheckoutRequest):
 
 @app.post("/paypal/orders/{order_id}/capture")
 def capture_paypal_order(order_id: str, req: CheckoutRequest):
-    return checkout.capture_order(get_store(), get_paypal(), req.user_id, order_id)
+    """The user approved the payment in PayPal; the payment agent pays the store and starts
+    watching for the receipt."""
+    return get_payment_agent().pay(get_paypal(), req.user_id, order_id)
+
+
+@app.get("/purchases/{user_id}")
+def list_purchases(user_id: str):
+    return {"purchases": get_store().list_purchases(user_id)}
+
+
+@app.get("/google/status/{user_id}")
+def google_status(user_id: str):
+    gmail = get_gmail()
+    return {"configured": gmail.configured, "email": gmail.connected_email(user_id)}
+
+
+@app.get("/google/connect", include_in_schema=False)
+def google_connect(user_id: str):
+    return RedirectResponse(get_gmail().auth_url(user_id))
+
+
+@app.get("/google/callback", include_in_schema=False)
+def google_callback(code: str | None = None, state: str | None = None, error: str | None = None):
+    if error or not (code and state):
+        return RedirectResponse("/?gmail=cancelled")
+    try:
+        get_gmail().connect(code, state)
+    except GmailError:
+        logger.exception("Gmail connect failed")
+        return RedirectResponse("/?gmail=error")
+    return RedirectResponse("/?gmail=connected")
+
+
+@app.delete("/google/{user_id}")
+def google_disconnect(user_id: str):
+    get_gmail().disconnect(user_id)
+    return {"email": None}
+
+
+@app.get("/push/key")
+def push_key():
+    """The VAPID public key the browser subscribes with (it isn't secret)."""
+    return {"public_key": config.VAPID_PUBLIC_KEY if push.configured() else None}
+
+
+@app.post("/push/subscribe")
+def push_subscribe(req: PushSubscribeRequest):
+    get_store().add_push_subscription(req.user_id, req.subscription.model_dump())
+    return {"status": "subscribed"}
