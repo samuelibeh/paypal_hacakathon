@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#001C64">
 <title>Scout · PayPal shopping agent</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2360CDFF'/%3E%3Cstop offset='1' stop-color='%230070E0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='9' fill='url(%23g)'/%3E%3Cg transform='translate(4 4)'%3E%3Cpath d='M17.2 6.6C16.2 5 14.3 4 12.2 4 9.2 4 7 5.7 7 8.1c0 5 10 3 10 8.1C17 18.5 14.8 20 12 20c-2.4 0-4.4-1.1-5.4-2.9' fill='none' stroke='%23fff' stroke-width='2.6' stroke-linecap='round'/%3E%3Cpath d='M18.4 2.2l.7 1.9 1.9.7-1.9.7-.7 1.9-.7-1.9-1.9-.7 1.9-.7z' fill='%23fff'/%3E%3Ccircle cx='6.4' cy='17.3' r='2.1' fill='%23fff'/%3E%3C/g%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -441,6 +442,8 @@
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <!-- Scout logo: an S drawn as a route, from a start point to the spark. -->
+  <symbol id="i-logo" viewBox="0 0 24 24"><path d="M17.2 6.6C16.2 5 14.3 4 12.2 4 9.2 4 7 5.7 7 8.1c0 5 10 3 10 8.1C17 18.5 14.8 20 12 20c-2.4 0-4.4-1.1-5.4-2.9" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><path d="M18.4 2.2l.7 1.9 1.9.7-1.9.7-.7 1.9-.7-1.9-1.9-.7 1.9-.7z" fill="currentColor" stroke="none"/><circle cx="6.4" cy="17.3" r="2.1" fill="currentColor" stroke="none"/></symbol>
   <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.14-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.14a.5.5 0 0 1 .96 0L14.06 8.5A2 2 0 0 0 15.5 9.94l6.14 1.58a.5.5 0 0 1 0 .96L15.5 14.06a2 2 0 0 0-1.44 1.44l-1.58 6.14a.5.5 0 0 1-.96 0z"/></symbol>
   <symbol id="i-send" viewBox="0 0 24 24"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></symbol>
   <symbol id="i-camera" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/></symbol>
@@ -466,7 +469,7 @@
 </svg>
 
 <nav class="rail" aria-label="Sections">
-  <div class="logo"><svg class="i"><use href="#i-sparkles"/></svg></div>
+  <div class="logo" title="Scout"><svg class="i" style="width:26px;height:26px"><use href="#i-logo"/></svg></div>
   <button type="button" data-nav="chat" class="active" aria-label="Chat"><svg class="i"><use href="#i-chat"/></svg><span class="tip">Chat</span></button>
   <button type="button" data-tab="cart" aria-label="Cart"><svg class="i"><use href="#i-bag"/></svg><span class="count" id="cartCount" hidden></span><span class="tip">Cart</span></button>
   <button type="button" data-tab="purchases" aria-label="Purchases"><svg class="i"><use href="#i-receipt"/></svg><span class="tip">Purchases</span></button>
@@ -794,7 +797,7 @@ function addMsg(node) {
 
 // An assistant turn: the Scout avatar, then the content stacked beside it.
 const botMsg = (...kids) => h("div", { class: "msg bot" },
-  h("div", { class: "avatar-bot" }, icon("sparkles", "sm")), h("div", { class: "bot-body" }, ...kids));
+  h("div", { class: "avatar-bot" }, icon("logo")), h("div", { class: "bot-body" }, ...kids));
 
 function dealCard(d, i) {
   const url = safeUrl(d.url);
