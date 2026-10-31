@@ -24,28 +24,46 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
+      # Secrets pasted by hand can carry a stray space, quote or Windows line ending, which
+      # makes ssh ignore them; clean them, and pin the host key to the exact address used.
       - name: Set up SSH
         env:
           SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
           KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
         run: |
-          mkdir -p ~/.ssh
-          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          host=$(printf '%s' "$VPS_HOST" | tr -d '\r\n\t "')
+          user=$(printf '%s' "$VPS_USER" | tr -d '\r\n\t "')
+          printf '%s\n' "$SSH_KEY" | tr -d '\r' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          # each key's type and value from the secret (an ssh-keyscan line or more), for this host
+          printf '%s\n' "$KNOWN_HOSTS" | tr -d '\r"' \
+            | awk -v h="$host" '{ for (i = 1; i < NF; i++) if ($i ~ /^(ssh-|ecdsa-)/) { print h, $i, $(i+1); break } }' \
+            > ~/.ssh/known_hosts
+          if [ ! -s ~/.ssh/known_hosts ]; then
+            echo "::error::VPS_KNOWN_HOSTS has no host key (expected a line like: 1.2.3.4 ssh-ed25519 AAAA...)"
+            exit 1
+          fi
+          echo "Trusted host keys:" && ssh-keygen -lf ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host vps
+            HostName $host
+            User $user
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+          EOF
 
       - name: Copy the code to the server
-        env:
-          TARGET: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
         run: |
           rsync -az --delete \
             --exclude '.git/' --exclude '.env' --exclude 'merchants.json' \
             --exclude 'venv/' --exclude '__pycache__/' --exclude '.pytest_cache/' \
-            -e "ssh -i ~/.ssh/deploy_key" ./ "$TARGET:scout-next/"
+            ./ vps:scout-next/
 
       - name: Test, switch over and restart
-        env:
-          TARGET: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
-        run: ssh -i ~/.ssh/deploy_key "$TARGET" 'bash scout-next/scripts/deploy.sh'
+        run: ssh vps 'bash scout-next/scripts/deploy.sh'
