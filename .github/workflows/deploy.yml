@@ -1,0 +1,51 @@
+# Deploys to the VPS on every push to main: copies the code to ~/scout-next, where
+# scripts/deploy.sh runs the tests and, only if they pass, switches ~/scout over and
+# restarts the service. A failing push leaves the live site as it was.
+#
+# Repository secrets (Settings → Secrets and variables → Actions):
+#   VPS_HOST         the server's address
+#   VPS_USER         the user to log in as (deploy)
+#   VPS_SSH_KEY      private key whose public half is in that user's ~/.ssh/authorized_keys
+#   VPS_KNOWN_HOSTS  the server's host key line (ssh-keyscan), so the connection is verified
+
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: false  # let a deploy finish before the next one starts
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up SSH
+        env:
+          SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Copy the code to the server
+        env:
+          TARGET: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+        run: |
+          rsync -az --delete \
+            --exclude '.git/' --exclude '.env' --exclude 'merchants.json' \
+            --exclude 'venv/' --exclude '__pycache__/' --exclude '.pytest_cache/' \
+            -e "ssh -i ~/.ssh/deploy_key" ./ "$TARGET:scout-next/"
+
+      - name: Test, switch over and restart
+        env:
+          TARGET: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+        run: ssh -i ~/.ssh/deploy_key "$TARGET" 'bash scout-next/scripts/deploy.sh'

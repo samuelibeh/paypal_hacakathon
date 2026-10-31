@@ -1,4 +1,5 @@
 import json
+from decimal import Decimal
 
 import httpx
 import pytest
@@ -43,7 +44,7 @@ class FakePayPalServer:
 
 
 def _deal(**fields):
-    return checkout.prepare_deal(fields, MERCHANTS)
+    return checkout.prepare_deal(fields, MERCHANTS, rates={})  # not the rates in your .env
 
 
 def _stock(store, user_id="u1"):
@@ -60,7 +61,7 @@ def _stock(store, user_id="u1"):
 def test_prepare_deal_normalises_price_and_flags_payable():
     shop_url = "https://shop.com/x"
     assert _deal(amount="1,299.5", currency="usd", url=shop_url) == {
-        "amount": "1299.50", "currency": "USD", "url": shop_url,
+        "amount": "1299.50", "currency": "USD", "charge_amount": "1299.50", "url": shop_url,
         "merchant_id": "shop", "payable": True, "unpayable_reason": None,
     }
     assert "USD prices only" in _deal(amount=450000, currency="NGN", url=shop_url)["unpayable_reason"]
@@ -69,6 +70,21 @@ def test_prepare_deal_normalises_price_and_flags_payable():
     unknown = _deal(amount=10, currency="USD", url="https://notshop.com/x")
     assert unknown["payable"] is False and "set up to take PayPal" in unknown["unpayable_reason"]
     assert _deal(amount=10, currency="USD", url="https://evilshop.com/x")["merchant_id"] is None
+
+
+def test_a_price_in_another_currency_is_charged_at_the_set_rate():
+    rates = {"NGN": Decimal("0.00065")}
+    fridge = checkout.prepare_deal(
+        {"title": "Fridge", "amount": 126999, "currency": "NGN", "url": "https://shop.com/f"}, MERCHANTS, rates,
+    )
+    assert (fridge["amount"], fridge["currency"]) == ("126999.00", "NGN")  # shown as the store prices it
+    assert fridge["charge_amount"] == "82.55" and fridge["payable"]        # charged in USD
+    assert checkout.prepare_deal({"amount": 10, "currency": "GBP", "url": "https://shop.com/g"}, MERCHANTS, rates)[
+        "payable"] is False  # no rate set for GBP
+
+    store = fake_store()
+    [saved] = store.save_deals("u1", [fridge])
+    assert checkout.add_item(store, "u1", saved["deal_id"])["total"] == "82.55"
 
 
 def test_cart_only_accepts_payable_deals_of_this_user():
@@ -141,3 +157,12 @@ def test_empty_cart_and_missing_credentials_are_reported():
     with pytest.raises(PayPalError) as err:
         PayPal(None, None)
     assert err.value.status_code == 503
+
+
+def test_a_catch_all_store_takes_every_store_not_named_by_domain():
+    demo = Merchant("demo", "Demo", ("*",), "sb@business.example.com", "store@test.com", ("store@test.com",))
+    merchants = Merchants([demo, SHOP])
+    assert merchants.for_url("https://www.shop.com/p/1") is SHOP
+    assert merchants.for_url("https://www.bestbuy.com/site/fridge") is demo
+    assert merchants.for_url("ftp://files.example.com/x") is None
+    assert merchants.for_url(None) is None

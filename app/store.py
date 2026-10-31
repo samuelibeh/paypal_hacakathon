@@ -1,12 +1,14 @@
 """MongoDB storage: user memory ("storage" in the diagram), contact vectors, the deals,
 cart and PayPal orders used at checkout, and what the payment agent needs afterwards
-(purchases awaiting a receipt, Gmail connections, push subscriptions)."""
+(purchases awaiting a receipt, Gmail connections, push subscriptions), and accounts."""
 
+import json
 import uuid
 from datetime import datetime, timezone
 from functools import lru_cache
 
 from pymongo import ReturnDocument
+from pymongo.errors import DuplicateKeyError
 
 from app import config
 from app.embeddings import cosine
@@ -27,6 +29,9 @@ class Store:
         self.users = db["users"]
         self.contacts = db["contacts"]
         self.contacts.create_index("user_id")
+        self.contacts.create_index([("user_id", 1), ("key", 1)])
+        self.contacts.create_index([("status", 1), ("created_at", 1)])
+        self.pending_imports = db["pending_imports"]
         self.deals = db["deals"]
         self.deals.create_index([("user_id", 1), ("deal_id", 1)])
         self.carts = db["carts"]
@@ -39,6 +44,119 @@ class Store:
         self.google_accounts.create_index("user_id", unique=True)
         self.push_subscriptions = db["push_subscriptions"]
         self.push_subscriptions.create_index("endpoint", unique=True)
+        self.chats = db["chats"]
+        self.chats.create_index([("user_id", 1), ("active", 1)])
+        self.accounts = db["accounts"]
+        self.accounts.create_index("email", unique=True)
+        self.accounts.create_index("user_id", unique=True)
+
+    # --- accounts ----------------------------------------------------------
+
+    def create_account(self, email: str, name: str, password_hash: str | None, location: str | None) -> dict | None:
+        # password_hash is None for accounts made with "Continue with Google"
+        """The new account, or None if the email is taken. The first account gets the
+        "demo-user" id, so it keeps what was saved before accounts existed."""
+        user_id = "demo-user" if self.accounts.count_documents({}) == 0 else uuid.uuid4().hex
+        account = {"user_id": user_id, "email": email, "name": name, "password_hash": password_hash,
+                   "location": location, "created_at": _now()}
+        try:
+            self.accounts.insert_one(account)
+        except DuplicateKeyError:
+            return None
+        return _public(account)
+
+    def account_by_email(self, email: str) -> dict | None:
+        """Includes the password hash, for checking a sign-in."""
+        return self.accounts.find_one({"email": email}, {"_id": 0})
+
+    def get_account(self, user_id: str) -> dict | None:
+        account = self.accounts.find_one({"user_id": user_id}, {"_id": 0})
+        return _public(account) if account else None
+
+    def update_account(self, user_id: str, **fields) -> dict | None:
+        self.accounts.update_one({"user_id": user_id}, {"$set": fields})
+        return self.get_account(user_id)
+
+    def adopt_guest(self, guest_id: str, user_id: str) -> None:
+        """Move what a guest did into the account they just signed up or signed in to: their
+        chat (it becomes the current one), deals, cart, orders, purchases and remembered facts."""
+        if self.chats.find_one({"user_id": guest_id, "active": True}):
+            self.end_chat(user_id)
+        for collection in (self.chats, self.deals, self.orders, self.purchases):
+            collection.update_many({"user_id": guest_id}, {"$set": {"user_id": user_id}})
+        cart = (self.carts.find_one({"user_id": guest_id}) or {}).get("deal_ids", [])
+        if cart:
+            self.carts.update_one({"user_id": user_id}, {"$addToSet": {"deal_ids": {"$each": cart}}}, upsert=True)
+        self.carts.delete_one({"user_id": guest_id})
+        known = self.get_profile(user_id)
+        for key, value in self.get_profile(guest_id).items():
+            if key not in known:  # what the account already knows wins, e.g. its name
+                self.remember(user_id, key, value)
+        self.users.delete_one({"user_id": guest_id})
+
+    # --- chats ---------------------------------------------------------------
+    # The current conversation per user. Turns are what the app shows; history is what the
+    # model sees. Both are kept as JSON text, and photos are left out of the history.
+
+    def chat_history(self, user_id: str) -> list | None:
+        doc = self.chats.find_one({"user_id": user_id, "active": True}, {"history": 1})
+        return json.loads(doc["history"]) if doc and doc.get("history") else None
+
+    def save_chat_turn(self, user_id: str, message: str, had_photo: bool | str, reply: dict, history: list) -> bool:
+        """had_photo is a small data-URL copy of the photo when the app sent one, else True/False.
+        Returns True when this turn started a new chat."""
+        turn = json.dumps({"message": message, "photo": had_photo, "reply": reply}, default=str)
+        doc = self.chats.find_one_and_update(
+            {"user_id": user_id, "active": True},
+            {"$push": {"turns": turn},
+             "$set": {"history": json.dumps(_without_photos(history), default=str), "updated_at": _now()},
+             "$setOnInsert": {"chat_id": uuid.uuid4().hex, "started_at": _now()}},
+            upsert=True, return_document=ReturnDocument.AFTER,
+        )
+        first = len(doc.get("turns", [])) == 1  # the chat may already exist, holding a hunt
+        if first and not doc.get("title"):
+            self.chats.update_one({"_id": doc["_id"]}, {"$set": {"title": _chat_title(message)}})
+        return first
+
+    # The current hunt (one search for one item) lives with the chat, so New chat starts clean.
+    def get_hunt(self, user_id: str) -> dict | None:
+        doc = self.chats.find_one({"user_id": user_id, "active": True}, {"hunt": 1})
+        return json.loads(doc["hunt"]) if doc and doc.get("hunt") else None
+
+    def save_hunt(self, user_id: str, hunt: dict) -> None:
+        self.chats.update_one(
+            {"user_id": user_id, "active": True},
+            {"$set": {"hunt": json.dumps(hunt, default=str)},
+             "$setOnInsert": {"chat_id": uuid.uuid4().hex, "started_at": _now()}},
+            upsert=True,
+        )
+
+    def set_chat_title(self, user_id: str, title: str) -> None:
+        self.chats.update_one({"user_id": user_id, "active": True}, {"$set": {"title": title}})
+
+    def current_chat(self, user_id: str) -> list[dict]:
+        doc = self.chats.find_one({"user_id": user_id, "active": True}, {"turns": 1})
+        return [json.loads(t) for t in (doc or {}).get("turns", [])]
+
+    def list_chats(self, user_id: str, limit: int = 30) -> list[dict]:
+        """The user's chats, newest first: {chat_id, title, updated_at, current}."""
+        docs = self.chats.find({"user_id": user_id}, {"chat_id": 1, "title": 1, "turns": {"$slice": 1},
+                                                      "updated_at": 1, "active": 1}).sort([("updated_at", -1), ("_id", -1)]).limit(limit)
+        return [{"chat_id": d["chat_id"], "updated_at": d.get("updated_at"), "current": bool(d.get("active")),
+                 "title": d.get("title") or _chat_title(json.loads(d["turns"][0])["message"] if d.get("turns") else "")}
+                for d in docs]
+
+    def open_chat(self, user_id: str, chat_id: str) -> list[dict] | None:
+        """Make an earlier chat the current one again. Returns its turns, or None if it isn't theirs."""
+        if not self.chats.find_one({"user_id": user_id, "chat_id": chat_id}, {"_id": 1}):
+            return None
+        self.end_chat(user_id)
+        self.chats.update_one({"user_id": user_id, "chat_id": chat_id}, {"$set": {"active": True}})
+        return self.current_chat(user_id)
+
+    def end_chat(self, user_id: str) -> None:
+        """New chat: the current one is kept but no longer current."""
+        self.chats.update_many({"user_id": user_id, "active": True}, {"$set": {"active": False, "ended_at": _now()}})
 
     # --- user memory -----------------------------------------------------
 
@@ -56,27 +174,99 @@ class Store:
 
     # --- contacts ----------------------------------------------------------
 
-    def add_contact(self, user_id: str, contact: dict, profile: str, embedding: list[float]) -> str:
-        contact_id = contact.get("id") or uuid.uuid4().hex
-        self.contacts.replace_one(
-            {"user_id": user_id, "contact_id": contact_id},
-            {
-                "user_id": user_id,
-                "contact_id": contact_id,
-                "name": contact["name"],
-                "phone": contact.get("phone"),
-                "email": contact.get("email"),
-                "notes": contact.get("notes"),
-                "profile": profile,
-                "embedding": embedding,
-                "updated_at": _now(),
-            },
-            upsert=True,
+    # A contact's status: queued / looking_up / waiting (over the lookup cap) / check (asking
+    # which of several people it is) / done (has a description) / nothing (looked up, nothing
+    # useful) / notes (being described from the user's notes) / skipped (a single name).
+    # A contact searched again keeps its description while queued, looked up or checked.
+
+    def save_contact(self, user_id: str, contact: dict, key: str, source: str, status: str) -> tuple[str, bool]:
+        """Add a contact, or update the one with the same key. Returns (contact_id, is_new)."""
+        fields = {k: contact.get(k) for k in ("name", "phone", "email", "company", "title", "notes")}
+        existing = self.contacts.find_one({"user_id": user_id, "key": key}, {"contact_id": 1})
+        if existing:
+            # keep what's known; only fill in details the earlier copy didn't have
+            self.contacts.update_one({"_id": existing["_id"]},
+                                     {"$set": {**{k: v for k, v in fields.items() if v}, "updated_at": _now()}})
+            return existing["contact_id"], False
+        contact_id = uuid.uuid4().hex
+        self.contacts.insert_one({
+            "user_id": user_id, "contact_id": contact_id, "key": key, "source": source, **fields,
+            "status": status, "people": [], "profile": "", "profile_source": None, "links": [],
+            "embedding": None, "attempts": 0, "created_at": _now(), "updated_at": _now(),
+            # when it joined the lookup queue: the app's progress counts this run's lookups only
+            "queued_at": _now() if status == "queued" else None,
+        })
+        return contact_id, True
+
+    def get_contact(self, user_id: str, contact_id: str) -> dict | None:
+        return self.contacts.find_one({"user_id": user_id, "contact_id": contact_id}, {"_id": 0, "embedding": 0})
+
+    def update_contact(self, user_id: str, contact_id: str, **fields) -> None:
+        self.contacts.update_one({"user_id": user_id, "contact_id": contact_id},
+                                 {"$set": {**fields, "updated_at": _now()}})
+
+    def contact_with_key(self, user_id: str, key: str, other_than: str | None = None) -> dict | None:
+        """The saved contact with this key (same number, else email, else name), if any."""
+        query = {"user_id": user_id, "key": key}
+        if other_than:
+            query["contact_id"] = {"$ne": other_than}
+        return self.contacts.find_one(query, {"_id": 0, "embedding": 0})
+
+    def delete_contact(self, user_id: str, contact_id: str) -> bool:
+        return self.contacts.delete_one({"user_id": user_id, "contact_id": contact_id}).deleted_count == 1
+
+    def set_contact_profile(self, user_id: str, contact_id: str, profile: str, embedding: list[float] | None,
+                            profile_source: str | None = None, links: list[str] | None = None) -> bool:
+        fields = {"profile": profile, "profile_source": profile_source, "embedding": embedding,
+                  "status": "done" if profile else "skipped", "updated_at": _now()}
+        if links is not None:
+            fields["links"] = links
+        result = self.contacts.update_one({"user_id": user_id, "contact_id": contact_id}, {"$set": fields})
+        return result.matched_count == 1
+
+    def claim_contact_lookup(self) -> dict | None:
+        """The oldest queued contact, marked as being looked up so only one worker takes it."""
+        doc = self.contacts.find_one_and_update(
+            {"status": "queued"}, {"$set": {"status": "looking_up", "updated_at": _now()}},
+            sort=[("created_at", 1)], return_document=ReturnDocument.AFTER,
         )
-        return contact_id
+        if doc:  # dropped here rather than by projection, which mongomock mishandles here
+            doc.pop("_id", None)
+            doc.pop("embedding", None)
+        return doc
+
+    def requeue_interrupted_lookups(self) -> None:
+        """Lookups cut off by a restart start again."""
+        self.contacts.update_many({"status": "looking_up"}, {"$set": {"status": "queued"}})
+
+    def queue_lookup(self, user_id: str, contact_id: str) -> None:
+        """Look this contact up again; what it has stays until the lookup finds something."""
+        self.update_contact(user_id, contact_id, status="queued", queued_at=_now(), attempts=0, people=[])
+
+    def queue_waiting_contacts(self, user_id: str, limit: int) -> int:
+        ids = [c["contact_id"] for c in self.contacts.find({"user_id": user_id, "status": "waiting"}, {"contact_id": 1})
+               .sort("created_at", 1).limit(limit)]
+        self.contacts.update_many({"user_id": user_id, "contact_id": {"$in": ids}},
+                                  {"$set": {"status": "queued", "queued_at": _now()}})
+        return len(ids)
+
+    def contact_counts(self, user_id: str) -> dict:
+        counts = {}
+        for c in self.contacts.find({"user_id": user_id}, {"status": 1, "people": 1}):
+            counts[c.get("status") or "done"] = counts.get(c.get("status") or "done", 0) + 1
+        return counts
 
     def list_contacts(self, user_id: str) -> list[dict]:
-        return list(self.contacts.find({"user_id": user_id}, {"_id": 0, "embedding": 0}))
+        return list(self.contacts.find({"user_id": user_id}, {"_id": 0, "embedding": 0, "key": 0}).sort("name", 1))
+
+    # Google Contacts come back through a redirect, so they wait here until the app shows them.
+    def save_pending_import(self, user_id: str, contacts: list[dict]) -> None:
+        self.pending_imports.replace_one({"user_id": user_id}, {"user_id": user_id, "contacts": contacts,
+                                                                "created_at": _now()}, upsert=True)
+
+    def take_pending_import(self, user_id: str) -> list[dict]:
+        doc = self.pending_imports.find_one_and_delete({"user_id": user_id})
+        return (doc or {}).get("contacts", [])
 
     def search_contacts(self, user_id: str, query_vec: list[float], limit: int, threshold: float) -> list[dict]:
         if config.MONGODB_VECTOR_INDEX:
@@ -95,7 +285,8 @@ class Store:
             hits = [{**h, "score": 2 * h["score"] - 1} for h in hits]
         else:
             hits = []
-            for doc in self.contacts.find({"user_id": user_id}, {"_id": 0}):
+            # contacts with no profile have no embedding and are never matched
+            for doc in self.contacts.find({"user_id": user_id, "embedding": {"$ne": None}}, {"_id": 0}):
                 vec = doc.pop("embedding")
                 hits.append({**doc, "score": cosine(query_vec, vec)})
             hits.sort(key=lambda h: h["score"], reverse=True)
@@ -112,6 +303,10 @@ class Store:
 
     def get_deal(self, user_id: str, deal_id: str) -> dict | None:
         return self.deals.find_one({"user_id": user_id, "deal_id": deal_id}, _DEAL_FIELDS)
+
+    def set_deal_image(self, user_id: str, deal_id: str, image: str | None) -> None:
+        """None is stored too, so a page without a photo isn't fetched again."""
+        self.deals.update_one({"user_id": user_id, "deal_id": deal_id}, {"$set": {"image": image}})
 
     def add_to_cart(self, user_id: str, deal_id: str) -> None:
         self.carts.update_one({"user_id": user_id}, {"$addToSet": {"deal_ids": deal_id}}, upsert=True)
@@ -207,6 +402,24 @@ class Store:
 
 
 _DEAL_FIELDS = {"_id": 0, "user_id": 0, "created_at": 0}
+
+
+def _chat_title(message: str) -> str:
+    """A chat is named after its first message."""
+    words = " ".join((message or "").split())
+    return (words[:57] + "…") if len(words) > 58 else (words or "New chat")
+
+
+def _without_photos(history: list) -> list:
+    """Photos are large and only needed on the turn they were sent."""
+    return [
+        {**m, "content": [{"text": "[The user attached a photo here.]"} if "image" in b else b for b in m.get("content", [])]}
+        for m in history
+    ]
+
+
+def _public(account: dict) -> dict:
+    return {k: account.get(k) for k in ("user_id", "email", "name", "location")}
 
 
 def _now():

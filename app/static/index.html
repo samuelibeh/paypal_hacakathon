@@ -8,14 +8,14 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2360CDFF'/%3E%3Cstop offset='1' stop-color='%230070E0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='9' fill='url(%23g)'/%3E%3Cg transform='translate(4 4)'%3E%3Cpath d='M17.2 6.6C16.2 5 14.3 4 12.2 4 9.2 4 7 5.7 7 8.1c0 5 10 3 10 8.1C17 18.5 14.8 20 12 20c-2.4 0-4.4-1.1-5.4-2.9' fill='none' stroke='%23fff' stroke-width='2.6' stroke-linecap='round'/%3E%3Cpath d='M18.4 2.2l.7 1.9 1.9.7-1.9.7-.7 1.9-.7-1.9-1.9-.7 1.9-.7z' fill='%23fff'/%3E%3Ccircle cx='6.4' cy='17.3' r='2.1' fill='%23fff'/%3E%3C/g%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   /* Tokens mirror the "Scout / Color" variables in the Figma file. */
   :root {
-    --bg: #F4F6FB; --surface: #FFFFFF; --subtle: #EEF2F9; --border: #E3E8F2; --border-strong: #C9D2E3;
+    --shell: #E4E9F3; --bg: #F4F6FB; --surface: #FFFFFF; --subtle: #EEF2F9; --border: #E3E8F2; --border-strong: #C9D2E3;
     --text: #0B1B3F; --text-2: #4A5878; --text-3: #8A96B0; --on-dark: #FFFFFF;
-    --navy: #001C64; --blue: #0070E0; --blue-soft: #E6F0FD; --sky: #60CDFF;
-    --gold: #FFC439; --gold-ink: #111111;
+    --navy: #001C64; --navy-2: #3B4E86; --blue: #0070E0; --blue-soft: #E6F0FD; --sky: #60CDFF;
+    --gold: #FFC439; --gold-ink: #111111; --gold-soft: #FFF6DC; --gold-text: #6B4E00; --gold-line: #F3E2AE;
     --deal: #0070E0; --contact: #6E56CF; --contact-soft: #EFEBFB; --payment: #0A8F5B;
     --ok: #0A8F5B; --ok-soft: #E3F6EE; --warn: #B5650B; --warn-soft: #FDF1E1; --err: #C8331F; --err-soft: #FDECEA;
     --r-sm: 8px; --r-md: 12px; --r-lg: 20px; --r-xl: 28px;
@@ -23,25 +23,17 @@
     --e2: 0 2px 6px rgba(10,26,64,.08), 0 16px 40px -8px rgba(10,26,64,.12);
     --glow: 0 8px 24px -6px rgba(0,112,224,.35);
     --brand-grad: linear-gradient(135deg, #60CDFF 0%, #0070E0 100%);
-    --font: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font: "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #070D1F; --surface: #0E1730; --subtle: #152142; --border: #1F2C52; --border-strong: #2E3E6B;
-      --text: #EEF2FF; --text-2: #A3B0CF; --text-3: #6B7899;
-      --navy: #0B2A80; --blue: #4C9DFF; --blue-soft: #12305E;
-      --deal: #4C9DFF; --contact: #A08CFF; --contact-soft: #251D4A; --payment: #3DD68C;
-      --ok: #3DD68C; --ok-soft: #0F3326; --warn: #F0B35A; --warn-soft: #3A2A10; --err: #FF8A7E; --err-soft: #3A1D1D;
-      --e1: none; --e2: 0 16px 40px -8px rgba(0,0,0,.5);
-    }
+    color-scheme: light;
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
   body {
     margin: 0; height: 100vh; height: 100dvh; overflow: hidden;
-    display: grid; grid-template-columns: 80px minmax(0, 1fr) 400px;
-    font: 15px/1.5 var(--font); background: var(--bg); color: var(--text);
+    /* the rail, chat and panel float as rounded cards on a slightly darker shell */
+    display: grid; grid-template-columns: 80px minmax(0, 1fr) 400px; gap: 10px; padding: 10px;
+    font: 15px/1.5 var(--font); background: var(--shell); color: var(--text);
     -webkit-font-smoothing: antialiased;
   }
   button, input, textarea { font: inherit; color: inherit; }
@@ -56,7 +48,7 @@
   /* ---------- nav rail ---------- */
   .rail {
     background: var(--navy); display: flex; flex-direction: column; align-items: center;
-    gap: 8px; padding: 20px 0; color: var(--on-dark);
+    gap: 8px; padding: 20px 0; color: var(--on-dark); border-radius: var(--r-lg);
   }
   .logo {
     width: 44px; height: 44px; border-radius: 14px; background: var(--brand-grad);
@@ -76,29 +68,57 @@
   }
   .rail button:hover .tip { opacity: 1; }
   .rail .spacer { flex: 1; }
+  .recent-chats { display: none; }
+  .chat-item {
+    display: grid; gap: 1px; width: 100%; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text); text-align: left; cursor: pointer; font-size: 14px; font-weight: 600;
+  }
+  .chat-item small { font-size: 12px; font-weight: 500; color: var(--text-3); }
+  .chat-item.on { border-color: var(--blue); background: var(--blue-soft); }
+  .chat-item span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .count {
     position: absolute; top: 6px; right: 5px; min-width: 18px; height: 18px; padding: 0 5px;
     border-radius: 999px; background: var(--gold); color: var(--gold-ink);
     font: 600 11px/18px var(--mono); text-align: center;
   }
-  .rail .me {
-    width: 40px; height: 40px; border-radius: 50%; background: var(--gold); color: var(--gold-ink) !important;
-    font-weight: 700; font-size: 14px; opacity: 1 !important; text-transform: uppercase;
+  .rail .me { opacity: 1; }
+  .me .avatar {
+    width: 40px; height: 40px; border-radius: 50%; flex: none; display: grid; place-items: center;
+    background: var(--gold); color: var(--gold-ink); font-weight: 700; font-size: 14px; text-transform: uppercase;
   }
+  .brand { display: grid; justify-items: center; }
+  .brand-name { display: none; }
+
+  /* the menu icon and the drawers' close buttons only show on smaller screens */
+  .menu-btn, .icon-btn {
+    width: 36px; height: 36px; border-radius: 10px; border: 0; flex: none; cursor: pointer;
+    background: transparent; color: var(--text); place-items: center; transition: background .15s;
+  }
+  .menu-btn { display: none; margin-left: -6px; }
+  .menu-btn:hover, .icon-btn:hover { background: var(--subtle); }
+  .icon-btn { display: grid; border-radius: 50%; color: var(--text-2); }
+  .close-panel { display: none; }
+  .new-chat { position: relative; width: 40px; height: 40px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); }
+  .btn-tip {
+    position: absolute; top: calc(100% + 8px); right: 0; z-index: 25; pointer-events: none; white-space: nowrap;
+    background: var(--text); color: var(--bg); font-size: 12px; font-weight: 600; padding: 5px 9px; border-radius: 8px;
+    opacity: 0; transition: opacity .15s;
+  }
+  .new-chat:hover .btn-tip, .new-chat:focus-visible .btn-tip { opacity: 1; }
+  .scrim { display: none; }
 
   /* ---------- chat column ---------- */
-  .chat { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .chat {
+    position: relative;  /* the toast sits over it */
+    display: flex; flex-direction: column; min-width: 0; min-height: 0;
+    background: var(--bg); border-radius: var(--r-lg); overflow: hidden;
+  }
   .chat-head {
     display: flex; align-items: center; gap: 12px; padding: 18px 32px 18px 40px;
     border-bottom: 1px solid var(--border);
   }
   .chat-head .title { flex: 1; min-width: 0; }
   .chat-head h1 { margin: 0; font-size: 20px; line-height: 26px; font-weight: 700; letter-spacing: -.4px; }
-  .status { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 2px; }
-  .chip { font-size: 12px; font-weight: 500; color: var(--text-2); display: inline-flex; align-items: center; gap: 6px; }
-  .chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--text-3); }
-  .chip.ok::before { background: var(--ok); }
-  .chip.off::before { background: var(--warn); }
 
   .messages { flex: 1; overflow-y: auto; padding: 32px 40px 16px; display: flex; flex-direction: column; }
   .thread { width: 100%; max-width: 848px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
@@ -119,6 +139,7 @@
   .md p { margin: 0 0 10px; } .md p:last-child { margin-bottom: 0; }
   .md ul, .md ol { margin: 4px 0 10px; padding-left: 22px; }
   .md li { margin: 2px 0; }
+  .md strong { font-weight: 600; }
 
   .spinner {
     width: 14px; height: 14px; border-radius: 50%; flex: none;
@@ -130,8 +151,7 @@
 
   /* empty state */
   .empty { margin: auto; width: 100%; max-width: 640px; padding: 24px 0; }
-  .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--blue); }
-  .empty h2 { margin: 10px 0 10px; font-size: clamp(32px, 5vw, 48px); line-height: 1.05; font-weight: 800; letter-spacing: -1.8px; }
+  .empty h2 { margin: 10px 0 10px; font-size: clamp(32px, 5vw, 48px); line-height: 1.05; font-weight: 300; letter-spacing: -1.4px; text-wrap: balance; }
   .empty > p { margin: 0 0 28px; color: var(--text-2); font-size: 16px; max-width: 520px; }
   .suggestions { display: grid; gap: 12px; }
   .suggestion {
@@ -141,7 +161,7 @@
   }
   .suggestion:hover { border-color: var(--blue); box-shadow: var(--e1); transform: translateY(-1px); }
   .suggestion .ico { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; flex: none; }
-  .suggestion strong { display: block; font-size: 15px; font-weight: 600; }
+  .suggestion strong { display: block; font-size: 15px; font-weight: 500; }
   .suggestion span.sub { display: block; font-size: 12px; font-weight: 500; color: var(--text-3); }
   .suggestion .grow { flex: 1; min-width: 0; }
   .suggestion > .i { color: var(--text-3); }
@@ -175,13 +195,48 @@
   }
   .tool:hover { color: var(--text); }
   .tool.on { background: var(--blue-soft); color: var(--blue); }
-  .loc input[type=checkbox] { position: absolute; opacity: 0; pointer-events: none; }
-  .loc input[type=text] {
-    border: 0; background: transparent; outline: 0; padding: 0; width: 140px;
-    font-size: 12px; font-weight: 600; color: inherit;
+  /* location pin: blue when Scout knows your area, red with an x when it doesn't */
+  .loc { position: relative; display: flex; }
+  .pin {
+    position: relative; width: 32px; height: 32px; border-radius: 50%; border: 0; cursor: pointer; flex: none;
+    display: grid; place-items: center; background: var(--blue-soft); color: var(--blue);
   }
-  .loc input[type=text]::placeholder { color: inherit; opacity: .7; }
-  .loc input[type=text]:disabled { width: 0; }
+  .pin.off { background: var(--err-soft); color: var(--err); }
+  .pin .x {
+    position: absolute; right: -2px; bottom: -2px; width: 14px; height: 14px; border-radius: 50%;
+    background: var(--err); color: #fff; display: none; place-items: center; box-shadow: 0 0 0 2px var(--surface);
+  }
+  .pin.off .x { display: grid; }
+  .pin .x .i { width: 9px; height: 9px; stroke-width: 3; }
+  .pin .pin-tip {
+    position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); pointer-events: none;
+    background: var(--text); color: var(--bg); font-size: 12px; font-weight: 600; padding: 5px 9px;
+    border-radius: 8px; white-space: nowrap; opacity: 0; transition: opacity .15s; z-index: 5;
+  }
+  .pin:hover .pin-tip, .pin:focus-visible .pin-tip { opacity: 1; }
+  @media (hover: none) { .pin .pin-tip { display: none; } }
+  /* typing an area: a bar that slides in over the message box */
+  .area-bar {
+    max-width: 848px; margin: 0 auto 8px; display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 14px;
+    border-radius: 18px; background: var(--surface); color: var(--blue);
+    border: 2px solid var(--blue); box-shadow: 0 0 0 4px var(--blue-soft); animation: rise .18s ease-out;
+  }
+  .area-bar input, .area-bar input[type=text], .area-bar input[type=text]:focus {
+    flex: 1; min-width: 0; border: 0; border-radius: 0; box-shadow: none; background: transparent; outline: 0; padding: 6px 0;
+    font-size: 16px; font-weight: 600; color: var(--text);  /* 16px stops iPhones zooming in */
+  }
+  .area-bar button {
+    display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 12px; border: 0; border-radius: 999px;
+    font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap;
+  }
+  .area-bar .use { background: var(--blue-soft); color: var(--blue); }
+  .area-bar .done { background: var(--blue); color: #fff; }
+  .loc-note-row { max-width: 848px; margin: 0 auto 8px; display: flex; }
+  .loc-note {
+    display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; padding: 5px 10px; border-radius: 999px;
+    background: var(--err-soft); color: var(--err); font-size: 12px; font-weight: 600;
+  }
+  .loc-note button { border: 0; background: none; padding: 0; color: inherit; font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
   .tools .grow { flex: 1; }
   .send {
     width: 40px; height: 40px; border-radius: 50%; border: 0; cursor: pointer; flex: none;
@@ -190,6 +245,9 @@
   }
   .send:hover:not(:disabled) { transform: translateY(-1px); }
   .send:disabled { opacity: .45; cursor: default; box-shadow: none; }
+  .send.stop { background: var(--navy); box-shadow: none; }
+  .msg.user.stopped { opacity: .55; }
+  .stopped-tag { display: flex; align-items: center; gap: 4px; margin-top: 6px; font-size: 12px; font-weight: 600; opacity: .9; }
   .attach { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-2); }
   .attach img { width: 44px; height: 44px; object-fit: cover; border-radius: 10px; border: 1px solid var(--border); }
 
@@ -225,30 +283,54 @@
   .worklog[open] > summary::after { transform: rotate(90deg); }
   .worklog > .timeline { margin: 6px 0 4px; }
   .live-trace { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 12px; }
-  .timeline { display: grid; gap: 6px; font-size: 13px; }
-  .tl-children { margin-left: 22px; }
+  /* minmax(0, 1fr) lets rows shrink to the box, so long text ends in "…" instead of
+     pushing the box past the edge of the chat */
+  .timeline { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; font-size: 13px; }
+  .tl-step, .tl-step > details { min-width: 0; }
+  .tl-children { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; margin-left: 22px; padding-left: 12px; border-left: 2px solid var(--border); }
   .tl-children:empty { display: none; }
   .tl-step > details > summary, .tl-thinking {
     display: flex; align-items: center; gap: 10px; padding: 8px 12px 8px 10px; min-width: 0;
     list-style: none; border-radius: var(--r-md); background: color-mix(in srgb, var(--subtle) 60%, transparent);
   }
-  .tl-step > details > summary { cursor: pointer; }
+  .tl-step > details > summary { cursor: default; }
   .tl-step > details > summary::-webkit-details-marker { display: none; }
   .tl-thinking { color: var(--text-2); background: transparent; padding-left: 4px; }
   .tl-dot { position: relative; width: 24px; height: 24px; border-radius: 8px; flex: none; display: grid; place-items: center; }
   .tl-dot .i { width: 14px; height: 14px; }
+  /* A blue arc that orbits the icon while it runs. The gradient turns, not the box,
+     so the rounded square doesn't wobble. */
   .tl-dot.running::after {
-    content: ""; position: absolute; inset: -3px; border-radius: 10px;
-    border: 2px solid transparent; border-top-color: var(--blue); animation: spin .8s linear infinite;
+    content: ""; position: absolute; inset: -3px; border-radius: 11px; padding: 2px;
+    background: conic-gradient(from var(--orbit), transparent 0 55%, var(--sky) 75%, var(--blue));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    animation: orbit 1.1s linear infinite;
   }
+  @property --orbit { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+  @keyframes orbit { to { --orbit: 360deg; } }
   .tl-dot.err { background: var(--err-soft) !important; color: var(--err) !important; }
   .tl-thinking .tl-dot { background: var(--blue-soft); color: var(--blue); }
-  .tl-label { font-weight: 600; white-space: nowrap; }
+  .tl-label { font-weight: 600; white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  /* a step with a query keeps its name whole; the query is cut first */
+  .tl-label:has(+ .tl-query) { flex: none; }
+  /* a light sweeps across the label of a step that's still running */
+  .tl-step.running > details > summary > .tl-label {
+    background: linear-gradient(90deg, var(--text) 0 40%, var(--sky) 50%, var(--text) 60% 100%);
+    background-size: 250% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
+    animation: shimmer 2s linear infinite;
+  }
+  @keyframes shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
+  @media (prefers-reduced-motion: reduce) {
+    .tl-dot.running::after { animation: none; }
+    .tl-step.running > details > summary > .tl-label { animation: none; background: none; color: var(--text); }
+  }
   .tl-query {
     font-size: 12px; color: var(--text-2); min-width: 0; flex: 1;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  .tl-status { margin-left: auto; font: 500 11px/14px var(--mono); color: var(--text-3); white-space: nowrap; }
+  .tl-status { margin-left: auto; flex: none; font: 500 11px/14px var(--mono); color: var(--text-3); white-space: nowrap; }
   .tl-step > details > summary > .tl-status::before { content: "✓ "; color: var(--ok); }
   .tl-step > details > summary > .tl-status:empty::before { content: ""; }
   .tl-note { color: var(--text-2); font-style: italic; padding: 2px 0 2px 12px; }
@@ -260,6 +342,10 @@
   /* ---------- results in a reply ---------- */
   .section-label { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; margin: 0 0 12px; }
   .section-label .i { width: 16px; height: 16px; }
+  .swipe-hint { display: none; margin-left: auto; font-size: 12px; font-weight: 500; color: var(--text-3); }
+  .deal-dots { display: none; justify-content: center; gap: 5px; padding-top: 10px; }
+  .deal-dots i { width: 6px; height: 6px; border-radius: 3px; background: var(--border-strong); transition: width .2s, background .2s; }
+  .deal-dots i.on { width: 16px; background: var(--navy); }
   .deals { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; }
   .deal {
     position: relative; display: flex; flex-direction: column; overflow: hidden;
@@ -267,16 +353,29 @@
     transition: border-color .15s, box-shadow .15s;
   }
   .deal.selected { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue), var(--glow); }
-  .deal-media { height: 120px; display: grid; place-items: center; position: relative; }
+  .deal-media { height: 168px; display: grid; place-items: center; position: relative; overflow: hidden; }
   .deal-media > .i { width: 52px; height: 52px; stroke-width: 1.5; opacity: .55; }
+  /* while the photo is being fetched: a light sweeping across a grey box */
+  .deal-media.loading { background: var(--subtle); color: var(--text-3); }
+  .deal-media.loading > .i { width: 40px; height: 40px; opacity: .6; }
+  .deal-media.loading::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,.75) 50%, transparent 70%);
+    background-size: 220% 100%; animation: sweep 1.4s linear infinite;
+  }
+  @keyframes sweep { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+  .deal-media.photo { background: #fff; border-bottom: 1px solid var(--border); }
+  .deal-media.photo img { max-width: 82%; max-height: 144px; object-fit: contain; animation: fade .3s ease-out; }
+  @keyframes fade { from { opacity: 0; } }
+  .source {
+    position: absolute; left: 12px; bottom: 10px; font-size: 10px; font-weight: 600; color: var(--text-3);
+    background: rgba(255,255,255,.9); border: 1px solid var(--border); padding: 2px 8px; border-radius: 999px;
+    max-width: calc(100% - 24px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  @media (prefers-reduced-motion: reduce) { .deal-media.loading::after, .deal-media.photo img { animation: none; } }
   .m0 { background: linear-gradient(135deg, #E6F0FD, #CCE0FA); color: var(--deal); }
   .m1 { background: linear-gradient(135deg, #F2F0FD, #E0DBFA); color: var(--contact); }
   .m2 { background: linear-gradient(135deg, #EDF7F2, #D6EFE3); color: var(--payment); }
-  @media (prefers-color-scheme: dark) {
-    .m0 { background: linear-gradient(135deg, #12305E, #0E2147); }
-    .m1 { background: linear-gradient(135deg, #251D4A, #1B1538); }
-    .m2 { background: linear-gradient(135deg, #0F3326, #0B261C); }
-  }
   .badge {
     position: absolute; top: 12px; display: inline-flex; align-items: center; gap: 5px;
     padding: 4px 10px; border-radius: 999px; font: 500 11px/14px var(--mono); color: #fff;
@@ -295,6 +394,14 @@
   .deal-details { font-size: 12px; color: var(--text-2); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
   .deal-note { display: flex; align-items: flex-start; gap: 6px; font-size: 12px; font-weight: 500; color: var(--text-3); }
   .deal-note .i { margin-top: 1px; }
+  .deal-note.miss { color: var(--warn); }
+  /* what PayPal charges for a deal priced in another currency */
+  .charge-chip {
+    align-self: flex-start; display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px;
+    border-radius: 999px; background: var(--blue-soft); color: var(--blue); font-size: 12px; font-weight: 600;
+  }
+  .pp-mark { font-weight: 800; font-style: italic; color: #003087; }
+  .pp-mark span { color: #0070E0; }
   .deal-actions { display: flex; gap: 8px; margin-top: auto; padding-top: 6px; }
   .deal-actions .btn { height: 40px; padding: 0 16px; }
   .deal-actions .btn:first-child { flex: 1; }
@@ -313,6 +420,139 @@
   .contact-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   .contact-head strong { font-weight: 600; font-size: 14px; }
   .contact p { margin: 0; font-size: 12px; font-weight: 500; color: var(--text-2); line-height: 1.45; }
+  .contact { position: relative; }
+  .contact .more {
+    width: 36px; height: 36px; margin: -8px -8px -8px 0; flex: none; display: grid; place-items: center;
+    border: none; border-radius: 10px; background: none; color: var(--text-2); cursor: pointer;
+  }
+  .contact .more:hover, .contact .more[aria-expanded="true"] { background: var(--subtle); color: var(--text); }
+  .card-menu {
+    position: absolute; top: 44px; right: 10px; z-index: 6; width: 210px; padding: 6px; display: grid;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--e2); animation: rise .14s ease;
+  }
+  .card-menu button {
+    height: 42px; display: flex; align-items: center; gap: 10px; padding: 0 12px; border: none; border-radius: 10px;
+    background: none; font: inherit; font-size: 14px; font-weight: 600; color: var(--text); cursor: pointer; text-align: left;
+  }
+  .card-menu button:hover, .card-menu button:focus-visible { background: var(--subtle); outline: none; }
+  .card-menu .danger { color: var(--err); }
+  .card-menu hr { width: 100%; height: 1px; margin: 4px 0; border: 0; background: var(--border); }
+  .contact.editing { border-color: var(--blue); box-shadow: 0 8px 24px -10px rgba(0,112,224,.35); }
+  .contact-form { display: grid; gap: 12px; }
+  .contact-form .two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .contact-form .hint { margin: -4px 0 0; }
+  .contact p.old { opacity: .6; }
+
+  /* a question that rises from the bottom: delete a contact, a number already saved */
+  .sheet-wrap {
+    position: fixed; inset: 0; z-index: 35; display: flex; align-items: flex-end; justify-content: center;  /* above the drawers, under toasts */
+    background: rgba(11,27,63,.38); animation: fade .18s ease;
+  }
+  .sheet {
+    width: min(440px, 100%); box-sizing: border-box; display: grid; gap: 14px; outline: none;
+    padding: 12px 20px calc(24px + env(safe-area-inset-bottom)); background: var(--surface);
+    border-radius: var(--r-xl) var(--r-xl) 0 0; box-shadow: var(--e2); animation: slide-up .22s ease;
+  }
+  .sheet .grab { width: 40px; height: 4px; border-radius: 2px; background: var(--border-strong); justify-self: center; }
+  .sheet-title { display: flex; align-items: center; gap: 12px; }
+  .sheet-title h3 { margin: 0; font-size: 18px; font-weight: 700; }
+  .sheet-title .badge-ic { width: 40px; height: 40px; border-radius: 50%; flex: none; display: grid; place-items: center; background: var(--warn-soft); color: var(--warn); }
+  .sheet-title .badge-ic.err { background: var(--err-soft); color: var(--err); }
+  .sheet p { margin: 0; font-size: 14px; line-height: 1.55; color: var(--text-2); }
+  .sheet .pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .sheet .pair > div { min-width: 0; display: grid; gap: 4px; align-content: start; padding: 12px; border: 1px solid var(--border); border-radius: 14px; }
+  .sheet .pair > .new { border-color: var(--blue); background: var(--blue-soft); }
+  .sheet .pair small { font-size: 10px; font-weight: 700; letter-spacing: .06em; color: var(--text-2); }
+  .sheet .pair strong { font-size: 14px; overflow-wrap: anywhere; }
+  .sheet .pair span { font-size: 12px; line-height: 1.4; color: var(--text-2); }
+  .sheet .acts { display: grid; gap: 10px; }
+  .sheet .acts .link { height: 40px; }
+  .btn.danger { background: var(--err); }
+  @keyframes slide-up { from { transform: translateY(100%); } }
+  @media (min-width: 1101px) {
+    .sheet-wrap { align-items: center; }
+    .sheet { border-radius: var(--r-xl); padding-bottom: 24px; }
+    .sheet .grab { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { .sheet-wrap, .sheet, .card-menu { animation: none; } }
+  .col { display: grid; gap: 16px; align-content: start; }
+  .panel-head #addContactsBtn { margin-left: auto; }
+
+  /* contacts: ways in, the review list, lookups and "which person is this?" */
+  .flow-title { margin: 0; font-size: 24px; font-weight: 300; letter-spacing: -.6px; line-height: 1.15; }
+  .way-in {
+    display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; border-radius: 16px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text); text-align: left;
+  }
+  .way-in:hover { border-color: var(--border-strong); }
+  .way-in .ico { width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center; background: var(--contact-soft); color: var(--contact); flex: none; }
+  .way-in .grow { flex: 1; min-width: 0; display: grid; }
+  .way-in strong { font-size: 14px; font-weight: 600; }
+  .way-in .grow span { font-size: 12px; color: var(--text-3); }
+  .way-in > .i:last-child { color: var(--text-3); }
+  .fine { margin: -6px 0 0; text-align: center; font-size: 12px; color: var(--text-3); }
+  .btn.google.dark { background: var(--navy); color: #fff; border: 0; }
+  /* a Google feature waiting on Google's approval */
+  .locked-btn {
+    display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 8px 6px 14px; border-radius: 999px;
+    background: var(--navy); color: #fff; opacity: .92; cursor: default; user-select: none;
+  }
+  .locked-btn .g { width: 26px; height: 26px; margin-left: -6px; border-radius: 50%; background: #fff; display: grid; place-items: center; flex: none; }
+  .locked-btn .g svg { width: 16px; height: 16px; }
+  .locked-btn .t { flex: 1; min-width: 0; font-size: 14px; font-weight: 700; }
+  .locked-btn .chip {
+    display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 12px; border-radius: 999px;
+    background: rgba(255,255,255,.14); color: #CFE3FF; font-size: 12px; font-weight: 700; white-space: nowrap;
+  }
+  .btn.google.dark svg { background: #fff; border-radius: 50%; padding: 3px; width: 22px; height: 22px; }
+  .review-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .review-head h3 { margin: 0; font-size: 20px; font-weight: 600; }
+  .review-count { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 600; }
+  .review-list { display: grid; gap: 2px; border: 1px solid var(--border); border-radius: 14px; padding: 6px; max-height: 46vh; overflow-y: auto; }
+  .pick { display: grid; grid-template-columns: 16px 30px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 7px 6px; border-radius: 10px; font-size: 13px; cursor: pointer; }
+  .pick:hover { background: var(--bg); }
+  .pick input, .person input { accent-color: var(--blue); width: 16px; height: 16px; margin: 0; }
+  .pick .initials { width: 30px; height: 30px; font-size: 11px; }
+  .pick .who { min-width: 0; display: grid; }
+  .pick .who b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pick .who small { color: var(--text-3); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .badge-sm { font-size: 10px; font-weight: 700; padding: 3px 7px; border-radius: 999px; white-space: nowrap; background: var(--subtle); color: var(--text-3); }
+  .badge-sm.look { background: var(--blue-soft); color: var(--blue); }
+  .lookups { display: grid; gap: 8px; padding: 14px; border-radius: 16px; background: var(--bg); }
+  .lookups strong { font-size: 14px; }
+  .lookups .bar { height: 6px; border-radius: 6px; background: var(--subtle); overflow: hidden; }
+  .lookups .bar i { display: block; height: 100%; background: var(--blue); border-radius: 6px; transition: width .4s; }
+  .nudge { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-radius: 14px; background: var(--warn-soft); color: var(--warn); font-size: 13px; font-weight: 600; }
+  .nudge .link { margin-left: auto; color: var(--warn); text-decoration: underline; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { padding: 6px 12px; border-radius: 999px; border: 0; font-size: 12px; font-weight: 600; background: var(--subtle); color: var(--text-2); cursor: pointer; }
+  .chip.on { background: var(--navy); color: #fff; }
+  .contact .busy { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--blue); }
+  .spinner { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--blue-soft); border-top-color: var(--blue); animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+  .contact .ask { display: grid; gap: 8px; padding: 12px; border-radius: 14px; background: var(--warn-soft); }
+  .contact .ask .q { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--warn); }
+  .person { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 10px; align-items: start; padding: 10px 12px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); cursor: pointer; }
+  .person.on { border-color: var(--blue); box-shadow: 0 0 0 2px var(--blue-soft); }
+  .person input { margin-top: 2px; }
+  .person > span { display: grid; gap: 3px; min-width: 0; }
+  .person b { font-size: 13px; font-weight: 600; }
+  .person .sum { font-size: 12px; color: var(--text-2); }
+  .links { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+  .links a, .contact .src a { font-size: 11px; font-weight: 600; color: var(--blue); text-decoration: none; }
+  .ask .acts { display: flex; align-items: center; gap: 12px; }
+  .contact .src { flex-wrap: wrap; }
+  .info.saving { opacity: .6; pointer-events: none; }
+  .contact .src { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: var(--text-3); }
+  .empty-desc {
+    display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 12px; border: 1px dashed var(--border-strong);
+    border-radius: 12px; background: none; cursor: pointer; text-align: left; font-size: 12px; font-weight: 500; color: var(--text-3);
+  }
+  .empty-desc b { margin-left: auto; color: var(--blue); font-weight: 600; white-space: nowrap; }
+  .contact textarea { width: 100%; min-height: 76px; resize: vertical; font-size: 13px; }
+  .desc-actions { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+  .desc-actions .hint { margin-right: auto; }
   .contact-meta { font-size: 12px; color: var(--text-3); }
   .pill {
     display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px;
@@ -327,7 +567,7 @@
 
   /* ---------- side panel ---------- */
   .side {
-    background: var(--surface); border-left: 1px solid var(--border);
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden;
     display: flex; flex-direction: column; min-height: 0;
   }
   .panel { flex: 1; overflow-y: auto; padding: 28px; display: grid; gap: 20px; align-content: start; }
@@ -346,10 +586,16 @@
   .merchant strong { display: block; font-size: 14px; font-weight: 600; }
   .merchant .hint { color: var(--text-2); }
   .merchant > .i { color: var(--ok); }
+  .merchant .logos { display: flex; flex: none; }
+  .merchant .logos .store-logo + .store-logo { margin-left: -10px; box-shadow: 0 0 0 2px var(--subtle); background: var(--navy-2); }
+  .cart-group { padding-top: 12px; }
   .cart-item { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto auto; gap: 12px; align-items: center; padding: 10px 0; }
-  .thumb { width: 48px; height: 48px; border-radius: 12px; display: grid; place-items: center; background: var(--blue-soft); color: var(--blue); }
+  .thumb { width: 48px; height: 48px; border-radius: 12px; display: grid; place-items: center; background: var(--blue-soft); color: var(--blue); overflow: hidden; }
+  .thumb.photo { background: #fff; border: 1px solid var(--border); }
+  .thumb img { width: 100%; height: 100%; object-fit: contain; padding: 4px; }
   .cart-item strong { display: block; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .cart-price { font-weight: 600; font-size: 14px; white-space: nowrap; }
+  .cart-price { font-weight: 600; font-size: 14px; white-space: nowrap; text-align: right; }
+  .cart-price small { display: block; font-size: 11px; font-weight: 500; color: var(--text-3); }
   .remove-x { width: 28px; height: 28px; border-radius: 50%; border: 0; background: transparent; color: var(--text-3); cursor: pointer; display: grid; place-items: center; }
   .remove-x:hover { background: var(--subtle); color: var(--text); }
   .divider { height: 1px; background: var(--border); }
@@ -407,37 +653,171 @@
   .check input { margin-top: 4px; accent-color: var(--blue); }
   dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 10px 16px; padding: 16px; border-radius: 16px; background: var(--bg); }
   dt { color: var(--text-3); font-size: 13px; font-weight: 500; }
-  dd { margin: 0; font-size: 14px; font-weight: 500; }
+  dd { margin: 0; font-size: 14px; font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
   .field { display: grid; gap: 6px; font-size: 13px; font-weight: 600; }
+  .account { display: grid; gap: 14px; padding: 16px; border-radius: 16px; background: var(--bg); }
 
+  /* guests: a banner under the header, and members-only pages show a sign-up note instead */
+  .guest-banner {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px 10px 40px; font-size: 13px; font-weight: 500;
+    background: var(--gold-soft); color: var(--gold-text); border-bottom: 1px solid var(--gold-line);
+  }
+  .guest-banner b { font-weight: 700; }
+  .guest-banner .short { display: none; }
+  .guest-banner .acts { margin-left: auto; display: flex; align-items: center; gap: 6px; flex: none; }
+  .guest-banner .btn.small { height: 30px; padding: 0 12px; font-size: 12px; background: var(--navy); }
+  .guest-banner .link { color: var(--gold-text); text-decoration: underline; font-size: 12px; padding: 0 6px; }
+  .guest-banner .icon-btn { color: var(--gold-text); }
+  .gate { display: grid; gap: 10px; justify-items: start; padding: 18px; border-radius: 16px; background: var(--bg); }
+  .gate .ico { width: 40px; height: 40px; border-radius: 12px; background: var(--blue-soft); color: var(--blue); display: grid; place-items: center; }
+  .gate strong { font-size: 15px; font-weight: 600; }
+  .gate p { margin: 0; font-size: 13px; color: var(--text-2); }
+  .gate .row { flex-wrap: wrap; }
+  .panel:not(.guest) > .gate, .panel.guest > :not(.panel-head):not(.gate) { display: none; }
+  .me .avatar.guest { background: rgba(255,255,255,.14); color: var(--on-dark); }
+  .photo-note { display: flex; align-items: center; gap: 6px; font-size: 12px; opacity: .8; margin-bottom: 4px; }
+
+  /* sign in and create account */
+  .auth-screen {
+    position: fixed; inset: 0; z-index: 60; overflow-y: auto; background: var(--shell);
+    display: grid; place-items: center; padding: 24px max(16px, env(safe-area-inset-left)) 24px max(16px, env(safe-area-inset-right));
+  }
+  .auth-card {
+    width: min(420px, 100%); display: grid; gap: 14px; padding: 28px 26px; border-radius: 24px;
+    background: var(--surface); box-shadow: var(--e2);
+  }
+  .auth-card { position: relative; }
+  .auth-card > .close-auth { position: absolute; top: 14px; right: 14px; }
+  .auth-brand { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 700; }
+  .auth-brand .logo { width: 36px; height: 36px; border-radius: 11px; margin: 0; }
+  .auth-card h2 { margin: 4px 0 0; font-size: 28px; font-weight: 300; letter-spacing: -.8px; line-height: 1.15; }
+  .auth-card .lead { margin: 0; font-size: 13px; color: var(--text-2); }
+  .auth-card input {
+    background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--r-md);
+    padding: 10px 12px; outline: none; width: 100%; font-size: 15px; font-weight: 500;
+  }
+  .auth-card input:focus { border-color: var(--blue); box-shadow: 0 0 0 4px var(--blue-soft); }
+  .auth-card textarea {
+    background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--r-md); resize: vertical;
+    padding: 10px 12px; outline: none; width: 100%; font-size: 15px; font-weight: 500; min-height: 64px;
+  }
+  .auth-card textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 4px var(--blue-soft); }
+  .auth-card .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .auth-card .chip.on { background: var(--contact-soft); color: var(--contact); }
+  .added { display: grid; gap: 6px; }
+  .added .who { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 12px; background: var(--ok-soft); }
+  .added .who .initials { width: 32px; height: 32px; font-size: 11px; }
+  .added .who b { display: block; font-size: 13px; font-weight: 600; }
+  .added .who small { display: block; font-size: 11px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .added .who > .i { color: var(--ok); }
+  .auth-card .btn { height: 46px; }
+  .steps { display: flex; gap: 6px; }
+  .steps i { flex: 1; height: 4px; border-radius: 4px; background: var(--subtle); }
+  .steps i.on { background: var(--blue); }
+  .btn.google { gap: 10px; }
+  .btn.google svg { width: 18px; height: 18px; }
+  .or-line { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--text-3); }
+  .or-line::before, .or-line::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+  .auth-switch { text-align: center; font-size: 13px; color: var(--text-2); }
+  .found { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 14px; background: var(--blue-soft); color: var(--blue); font-weight: 600; }
+  .found small { display: block; font-size: 12px; font-weight: 500; color: var(--text-2); }
+  .blocked { display: flex; gap: 10px; padding: 12px 14px; border-radius: 14px; background: var(--err-soft); color: var(--err); font-size: 13px; font-weight: 500; }
+  .blocked b { display: block; font-weight: 700; }
+  .blocked span { color: var(--text-2); }
+
+  /* a small status pill, centred over the chat just under its header */
   .toast {
-    position: fixed; left: 50%; top: 20px; transform: translateX(-50%); z-index: 20;
-    max-width: min(520px, calc(100vw - 32px)); padding: 12px 18px; border-radius: 14px;
-    background: var(--navy); color: #fff; font-size: 14px; font-weight: 500; box-shadow: var(--e2);
-    animation: rise .2s ease-out;
+    position: absolute; top: 74px; left: 50%; transform: translateX(-50%); z-index: 20;
+    display: flex; align-items: center; gap: 8px; width: max-content; max-width: min(520px, calc(100% - 32px));
+    padding: 8px 16px 8px 8px; border-radius: 22px; background: var(--surface); color: var(--text);
+    border: 1px solid var(--border); box-shadow: 0 12px 26px -12px rgba(0,28,100,.32);
+    font-size: 13px; font-weight: 600; line-height: 1.4; animation: drop .2s ease-out;
   }
-  .toast.error { background: var(--err); }
+  .toast .dot { width: 22px; height: 22px; border-radius: 50%; flex: none; display: grid; place-items: center; background: var(--ok); color: #fff; }
+  .toast .dot .i { width: 13px; height: 13px; stroke-width: 3; }
+  .toast.error .dot { background: var(--err); }
+  @keyframes drop { from { opacity: 0; transform: translate(-50%, -6px); } to { opacity: 1; transform: translate(-50%, 0); } }
+  @media (prefers-reduced-motion: reduce) { .toast { animation: none; } }
 
-  /* ---------- small screens: rail becomes a bottom tab bar ---------- */
-  @media (max-width: 1100px) { body { grid-template-columns: 80px minmax(0, 1fr) 340px; } .panel { padding: 22px; } }
-  @media (max-width: 860px) {
-    body { display: block; height: auto; overflow: auto; padding-bottom: 72px; }
+  /* ---------- smaller screens: the navy bar and the side panel tuck away ----------
+     The menu icon in the header slides the bar out (with labels), and picking a page
+     slides that page's panel in from the right. */
+  @media (max-width: 1100px) {
+    body { display: block; padding: 0; background: var(--bg); }
+    .toast { position: fixed; top: calc(74px + env(safe-area-inset-top, 0px)); z-index: 40; }  /* above the drawers */
+    .chat { height: 100vh; height: var(--visible-height, 100dvh); border-radius: 0; }
+    .chat-head { padding-left: 24px; }
+    .menu-btn { display: grid; }
     .rail {
-      position: fixed; z-index: 15; left: 0; right: 0; bottom: 0; height: calc(64px + env(safe-area-inset-bottom));
-      flex-direction: row; justify-content: space-around; padding: 8px 8px env(safe-area-inset-bottom);
+      position: fixed; z-index: 30; top: 0; bottom: 0; left: 0; width: 240px; max-width: 82vw;
+      align-items: stretch; gap: 4px; padding: 18px 12px calc(18px + env(safe-area-inset-bottom));
+      border-radius: 0 var(--r-lg) var(--r-lg) 0;
+      box-shadow: var(--e2); transform: translateX(-100%); visibility: hidden;
+      transition: transform .22s ease, visibility 0s .22s;
     }
-    .rail .logo, .rail .spacer, .rail button .tip { display: none; }
-    .rail button { width: 44px; height: 44px; }
-    .chat { height: calc(100dvh - 72px); }
-    .chat-head { padding: 14px 16px; }
-    .status { display: none; }
-    .messages { padding: 20px 16px 8px; }
-    .composer-wrap { padding: 8px 12px 12px; }
-    .msg.bot { grid-template-columns: 1fr; } .avatar-bot { display: none; }
-    .side { border-left: 0; border-top: 1px solid var(--border); }
-    .panel { padding: 20px 16px; overflow: visible; }
-    .deals { grid-template-columns: 1fr; }
+    body.nav-open .rail { transform: none; visibility: visible; transition: transform .22s ease; }
+    .brand { display: flex; align-items: center; gap: 12px; padding: 0 6px; margin-bottom: 16px; }
+    .brand .logo { width: 36px; height: 36px; border-radius: 12px; margin: 0; }
+    .brand-name { display: block; font-size: 17px; font-weight: 600; }
+    .rail button {
+      width: auto; height: 44px; display: flex; align-items: center; justify-content: flex-start;
+      gap: 12px; padding: 0 12px; border-radius: 12px; opacity: .75;
+    }
+    .rail button .tip {
+      position: static; transform: none; opacity: 1; order: 1; padding: 0;
+      background: none; color: inherit; font-size: 14px; font-weight: 500;
+    }
+    .rail .count { position: static; order: 2; margin-left: auto; }
+    .rail .chats-tab { display: none; }
+    .rail .recent-chats:not([hidden]) ~ .spacer { display: none; }  /* the list fills the space; guests have no list */
+    .recent-chats { display: flex; flex-direction: column; gap: 2px; flex: 1; min-height: 0; overflow-y: auto; margin-top: 8px; }
+    .recent-chats .label { padding: 10px 12px 4px; font-size: 10px; font-weight: 700; letter-spacing: .8px; opacity: .55; }
+    .rail .recent-chats button {
+      /* left-aligned rows; the menu's buttons otherwise centre what's inside them */
+      display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; place-items: initial;
+      gap: 1px; width: 100%; height: auto; padding: 8px 12px; border-radius: 10px; text-align: left;
+      font-size: 13px; font-weight: 500; opacity: .8;
+    }
+    .rail .recent-chats button > * { display: block; width: 100%; text-align: left; }
+    .recent-chats button.on { background: rgba(255,255,255,.1); opacity: 1; }
+    .recent-chats button span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .recent-chats button small { font-size: 11px; opacity: .6; }
+    .rail .me .avatar { width: 32px; height: 32px; font-size: 12px; }
+    .side {
+      position: fixed; z-index: 30; top: 0; right: 0; bottom: 0; width: min(420px, 100vw);
+      border: 0; border-radius: var(--r-lg) 0 0 var(--r-lg);
+      box-shadow: var(--e2); transform: translateX(100%); visibility: hidden;
+      transition: transform .22s ease, visibility 0s .22s;
+    }
+    body.panel-open .side { transform: none; visibility: visible; transition: transform .22s ease; }
+    .scrim {
+      display: block; position: fixed; inset: 0; z-index: 25; background: rgba(11,27,63,.35);
+      opacity: 0; pointer-events: none; transition: opacity .22s;
+    }
+    body.nav-open .scrim, body.panel-open .scrim { opacity: 1; pointer-events: auto; }
+    .close-panel { display: grid; }
+    .panel { padding: 22px; }
   }
+  @media (max-width: 860px) {
+    .chat-head { padding: 12px 16px; }
+    .messages { padding: 20px 16px 8px; }
+    .composer-wrap { padding: 8px 12px calc(12px + env(safe-area-inset-bottom)); }
+    .msg.bot { grid-template-columns: minmax(0, 1fr); }
+    .guest-banner { padding-left: 16px; font-size: 12px; }
+    .guest-banner .long, .guest-banner .link { display: none; }
+    .guest-banner .short { display: inline; } .avatar-bot { display: none; }
+    .panel { padding: 18px 16px 24px; }
+    /* one card and a peek of the next; swipe sideways */
+    .deals {
+      display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none;
+      margin: 0 -16px; padding: 2px 16px 4px; overscroll-behavior-x: contain;
+    }
+    .deals::-webkit-scrollbar { display: none; }
+    .deals > .deal { flex: 0 0 82%; scroll-snap-align: start; scroll-margin-left: 16px; }
+    .swipe-hint { display: inline; }
+    .deal-dots { display: flex; }
+  }
+  @media (prefers-reduced-motion: reduce) { .rail, .side, .scrim { transition: none !important; } }
 </style>
 </head>
 <body>
@@ -446,6 +826,7 @@
   <symbol id="i-logo" viewBox="0 0 24 24"><path d="M17.2 6.6C16.2 5 14.3 4 12.2 4 9.2 4 7 5.7 7 8.1c0 5 10 3 10 8.1C17 18.5 14.8 20 12 20c-2.4 0-4.4-1.1-5.4-2.9" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><path d="M18.4 2.2l.7 1.9 1.9.7-1.9.7-.7 1.9-.7-1.9-1.9-.7 1.9-.7z" fill="currentColor" stroke="none"/><circle cx="6.4" cy="17.3" r="2.1" fill="currentColor" stroke="none"/></symbol>
   <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.14-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.14a.5.5 0 0 1 .96 0L14.06 8.5A2 2 0 0 0 15.5 9.94l6.14 1.58a.5.5 0 0 1 0 .96L15.5 14.06a2 2 0 0 0-1.44 1.44l-1.58 6.14a.5.5 0 0 1-.96 0z"/></symbol>
   <symbol id="i-send" viewBox="0 0 24 24"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="3" fill="currentColor" stroke="none"/></symbol>
   <symbol id="i-camera" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/></symbol>
   <symbol id="i-pin" viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></symbol>
   <symbol id="i-bag" viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></symbol>
@@ -465,40 +846,75 @@
   <symbol id="i-chat" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></symbol>
   <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></symbol>
   <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 8h16"/><path d="M4 16h10"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></symbol>
+  <symbol id="i-compose" viewBox="0 0 24 24"><path d="M12 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"/><path d="M18.4 2.6a2 2 0 0 1 2.9 2.9L12 14.8l-4 1 1-4z"/></symbol>
+  <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M21.17 6.81a2.83 2.83 0 0 0-4-4L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6M14 11v6"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></symbol>
   <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M8 16H3v5"/></symbol>
 </svg>
 
-<nav class="rail" aria-label="Sections">
-  <div class="logo" title="Scout"><svg class="i" style="width:26px;height:26px"><use href="#i-logo"/></svg></div>
-  <button type="button" data-nav="chat" class="active" aria-label="Chat"><svg class="i"><use href="#i-chat"/></svg><span class="tip">Chat</span></button>
+<div class="auth-screen" id="authScreen" hidden>
+  <form class="auth-card" id="authCard" novalidate></form>
+</div>
+<div class="scrim" id="scrim"></div>
+<nav class="rail" id="rail" aria-label="Sections">
+  <div class="brand"><div class="logo" title="Scout"><svg class="i" style="width:26px;height:26px"><use href="#i-logo"/></svg></div><span class="brand-name">Scout</span></div>
   <button type="button" data-tab="cart" aria-label="Cart"><svg class="i"><use href="#i-bag"/></svg><span class="count" id="cartCount" hidden></span><span class="tip">Cart</span></button>
   <button type="button" data-tab="purchases" aria-label="Purchases"><svg class="i"><use href="#i-receipt"/></svg><span class="tip">Purchases</span></button>
   <button type="button" data-tab="contacts" aria-label="Contacts"><svg class="i"><use href="#i-users"/></svg><span class="tip">Contacts</span></button>
-  <button type="button" data-tab="import" aria-label="Import contacts"><svg class="i"><use href="#i-upload"/></svg><span class="tip">Import contacts</span></button>
+  <button type="button" data-tab="chats" class="chats-tab" aria-label="Chats" hidden><svg class="i"><use href="#i-chat"/></svg><span class="tip">Chats</span></button>
+  <div class="recent-chats" id="recentChats" hidden></div>
   <div class="spacer"></div>
-  <button type="button" data-tab="profile" class="me" id="meBtn" aria-label="Profile">DU<span class="tip">Profile</span></button>
+  <button type="button" data-tab="profile" class="me" id="meBtn" aria-label="Profile"><span class="avatar">DU</span><span class="tip">Profile</span></button>
 </nav>
 
 <main class="chat">
   <header class="chat-head">
+    <button class="menu-btn" type="button" id="menuBtn" aria-label="Menu" aria-controls="rail"><svg class="i"><use href="#i-menu"/></svg></button>
     <div class="title">
       <h1>Scout</h1>
-      <div class="status" id="status"><span class="chip">Checking API…</span></div>
     </div>
-    <button class="btn ghost small" id="resetBtn" title="Clear this user's conversation on the server">New chat</button>
+    <button class="icon-btn new-chat" type="button" id="resetBtn" aria-label="New chat">
+      <svg class="i"><use href="#i-compose"/></svg><span class="btn-tip">New chat</span>
+    </button>
   </header>
+  <div class="guest-banner" id="guestBanner" hidden>
+    <svg class="i sm"><use href="#i-info"/></svg>
+    <span class="long"><b>You're shopping as a guest.</b> Sign up to keep your chats, cart and purchases.</span>
+    <span class="short"><b>Guest:</b> chats aren't saved.</span>
+    <span class="acts">
+      <button class="btn small" type="button" id="bannerSignUp">Sign up</button>
+      <button class="link" type="button" id="bannerSignIn">Sign in</button>
+      <button class="icon-btn" type="button" id="bannerClose" aria-label="Hide for now"><svg class="i sm"><use href="#i-x"/></svg></button>
+    </span>
+  </div>
+  <div class="toast" id="toast" role="status" hidden></div>
   <div class="messages" id="messages"></div>
   <div class="composer-wrap">
+    <div class="loc-note-row" id="locNoteRow" hidden><div class="loc-note" id="locNote"></div></div>
+    <div class="area-bar" id="areaBar" hidden>
+      <svg class="i sm"><use href="#i-pin"/></svg>
+      <input type="text" id="location" placeholder="Type your area, e.g. Yaba" aria-label="Your area" autocomplete="address-level2">
+      <button class="use" type="button" id="useMine"><svg class="i xs"><use href="#i-pin"/></svg>Use mine</button>
+      <button class="done" type="button" id="areaDone">Done</button>
+    </div>
     <form class="composer" id="chatForm">
       <div class="attach" id="attachPreview" hidden></div>
-      <textarea id="msg" rows="1" placeholder="Ask for anything — “a gold clutch for a wedding”, “who can fix my AC?”"></textarea>
+      <textarea id="msg" rows="1" placeholder="What do you need? A product, a fix, a deal…"></textarea>
       <div class="tools">
         <button class="tool" type="button" id="attachBtn" title="Attach a photo (the space, your outfit, the room…)"><svg class="i sm"><use href="#i-camera"/></svg>Photo</button>
         <input type="file" id="fileInput" accept="image/*" hidden>
-        <label class="tool loc" id="locChip" title="Share your location so deals are local">
-          <input type="checkbox" id="shareLoc"><svg class="i sm"><use href="#i-pin"/></svg><span id="locLabel">Location</span>
-          <input type="text" id="location" placeholder="e.g. Lagos, Nigeria" disabled aria-label="Your location">
-        </label>
+        <div class="loc">
+          <button class="pin off" type="button" id="pinBtn" aria-label="Your area">
+            <svg class="i sm"><use href="#i-pin"/></svg><span class="x"><svg class="i"><use href="#i-x"/></svg></span>
+            <span class="pin-tip" id="pinTip">Set your area</span>
+          </button>
+        </div>
         <span class="grow"></span>
         <button class="send" id="sendBtn" aria-label="Send"><svg class="i"><use href="#i-send"/></svg></button>
       </div>
@@ -545,33 +961,27 @@
   </div>
 
   <div class="panel" id="tab-contacts" hidden>
-    <div class="panel-head"><h2>Contacts</h2></div>
-    <form class="row" id="searchForm">
-      <input type="text" id="need" placeholder="Search by need, e.g. fridge">
-      <button class="btn ghost"><svg class="i sm"><use href="#i-search"/></svg><span class="sr-only">Search</span></button>
-    </form>
-    <div class="row" style="justify-content: space-between; align-items: center;">
-      <p class="caps" id="contactsLabel">All contacts</p>
-      <button class="link" id="showAll" hidden>Show all</button>
+    <div class="panel-head"><h2>Contacts</h2>
+      <button class="btn ghost small" type="button" id="addContactsBtn" hidden><svg class="i xs"><use href="#i-plus"/></svg>Add</button></div>
+    <div class="col" id="contactsMain">
+      <div class="col" id="contactsStatus"></div>
+      <form class="row" id="searchForm">
+        <input type="text" id="need" placeholder="Search by need, e.g. fridge">
+        <button class="btn ghost"><svg class="i sm"><use href="#i-search"/></svg><span class="sr-only">Search</span></button>
+      </form>
+      <div class="chips" id="contactChips"></div>
+      <div class="row" style="justify-content: space-between; align-items: center;">
+        <p class="caps" id="contactsLabel">All contacts</p>
+        <button class="link" id="showAll" hidden>Show all</button>
+      </div>
+      <div class="cards" id="contactList"></div>
     </div>
-    <div class="cards" id="contactList"></div>
+    <div class="col" id="contactsFlow" hidden></div>
   </div>
 
-  <div class="panel" id="tab-import" hidden>
-    <div class="panel-head"><h2>Import contacts</h2></div>
-    <p class="hint">Add contacts with a note about what they do. The agent writes a short shopping profile for each one, then matches them to what you're looking for.</p>
-    <div id="importRows" style="display: grid; gap: 10px;"></div>
-    <div class="row">
-      <button class="btn ghost small" id="addRow"><svg class="i xs"><use href="#i-plus"/></svg>Add contact</button>
-      <button class="btn ghost small" id="loadSample">Load samples</button>
-    </div>
-    <label class="check">
-      <input type="checkbox" id="enrich">
-      <span>Also search the web about each contact<br>
-        <span class="hint">Sends their names to Tavily. Only turn this on with their consent.</span></span>
-    </label>
-    <button class="btn block" id="importBtn">Import contacts</button>
-    <div id="importStatus"></div>
+  <div class="panel" id="tab-chats" hidden>
+    <div class="panel-head"><h2>Chats</h2></div>
+    <div class="cards" id="chatList"></div>
   </div>
 
   <div class="panel" id="tab-profile" hidden>
@@ -579,24 +989,30 @@
       <h2>Profile</h2>
       <button class="btn ghost small" id="refreshProfile"><svg class="i xs"><use href="#i-refresh"/></svg>Refresh</button>
     </div>
-    <label class="field">User ID <input type="text" id="userId" autocomplete="off"></label>
+    <form class="account" id="accountForm">
+      <label class="field">Your name <input type="text" id="accName" autocomplete="name" required></label>
+      <label class="field">Your area <input type="text" id="accArea" placeholder="e.g. Ikeja, Lagos" autocomplete="address-level2"></label>
+      <p class="hint" id="accEmail"></p>
+      <button class="btn small" type="submit">Save</button>
+    </form>
     <p class="caps">What I remember about you</p>
     <div id="profile"></div>
+    <button class="btn ghost block" type="button" id="signOutBtn">Sign out</button>
   </div>
 </aside>
-<div class="toast" id="toast" hidden></div>
 <script>
 const $ = (s) => document.querySelector(s);
 const local = {
   get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch {} },
 };
+// Kept for this visit only: forgotten when the browser closes.
+const visit = {
+  get(k, d) { try { return sessionStorage.getItem(k) ?? d; } catch { return d; } },
+  set(k, v) { try { sessionStorage.setItem(k, v); } catch {} },
+};
+try { localStorage.removeItem("guestArea"); } catch {}  // guest areas used to outlive the visit
 
-const SAMPLE_CONTACTS = [
-  { name: "Morris Adeyemi", phone: "+234 800 000 0001", notes: "runs an appliance shop in Ikeja, sells fridges and ACs" },
-  { name: "Bob Okafor", phone: "+234 800 000 0002", notes: "bought a new Samsung fridge last month" },
-  { name: "Jessica Eze", phone: "+234 800 000 0003", notes: "wedding photographer" },
-];
 const SUGGESTIONS = [
   { text: "Where can I buy a fridge?", sub: "Deals near you, plus people you know who sell them", icon: "tag", tone: "t-deal" },
   { text: "I need a cheap laptop for school", sub: "Compare prices across the big online stores", icon: "search", tone: "t-pay" },
@@ -626,11 +1042,15 @@ function icon(name, cls = "") {
 }
 const initials = (name) => (name || "?").split(/[\s._-]+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("") || "?";
 
-const uid = () => $("#userId").value.trim() || "demo-user";
+let me = null;  // the signed-in account: { user_id, email, name, location }
+const uid = () => me?.user_id || "";
+const isGuest = () => Boolean(me?.guest);
 const uidPath = () => encodeURIComponent(uid());
 const safeUrl = (u) => (/^https?:\/\//i.test(u || "") ? u : null);
 const truncate = (s, n) => (s.length > n ? s.slice(0, n) + "…" : s);
 let payCurrency = "USD";
+let googleReady = true;
+let googleVerified = false;  // Gmail and Google Contacts open once Google approves Scout
 
 function fmtMoney(value, currency) {
   try { return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(Number(value)); }
@@ -640,7 +1060,7 @@ function fmtMoney(value, currency) {
 let toastTimer;
 function toast(message, isError = false) {
   const t = $("#toast");
-  t.textContent = message;
+  t.replaceChildren(h("span", { class: "dot" }, icon(isError ? "x" : "check")), h("span", {}, message));
   t.className = `toast${isError ? " error" : ""}`;
   t.hidden = false;
   clearTimeout(toastTimer);
@@ -658,12 +1078,16 @@ const loadScript = (src) => new Promise((resolve, reject) => {
 async function request(path, opts = {}) {
   try {
     return await fetch(path, { headers: { "Content-Type": "application/json" }, ...opts });
-  } catch {
+  } catch (e) {
+    if (opts.signal?.aborted) throw e;  // the user pressed Stop
     throw new Error("Can't reach the API. Is uvicorn running?");
   }
 }
 
 function httpError(status, data) {
+  if ([502, 503, 504].includes(status)) {  // nginx's page while Scout restarts (e.g. during a deploy)
+    return Object.assign(new Error("Scout is restarting. Try again in a moment."), { temporary: true });
+  }
   const detail = typeof data === "object" && data ? data.detail ?? data : data;
   const message = typeof detail === "string" ? detail : JSON.stringify(detail);
   return new Error(status >= 500 ? `Server error ${status}: ${message}. Check the uvicorn terminal for details.` : message);
@@ -674,13 +1098,15 @@ async function api(path, opts = {}) {
   const text = await res.text();
   let data;
   try { data = JSON.parse(text); } catch { data = text; }
+  // The session ran out while using the app: start again (as a guest if need be).
+  if (res.status === 401 && me && !path.startsWith("/auth/")) location.reload();
   if (!res.ok) throw httpError(res.status, data);
   return data;
 }
 
 // POST /chat/stream and pass each progress event to onEvent; resolves with the final reply.
-async function streamChat(body, onEvent) {
-  const res = await request("/chat/stream", { method: "POST", body: JSON.stringify(body) });
+async function streamChat(body, onEvent, signal) {
+  const res = await request("/chat/stream", { method: "POST", body: JSON.stringify(body), signal });
   if (!res.ok) {
     const text = await res.text();
     let data;
@@ -702,6 +1128,7 @@ async function streamChat(body, onEvent) {
       if (!data) continue;
       const event = JSON.parse(data);
       if (event.type === "done") return event;
+      if (event.type === "stopped") throw Object.assign(new Error("Stopped"), { stopped: true });
       if (event.type === "error") throw new Error(`${event.detail}. Check the uvicorn terminal for details.`);
       onEvent(event);
     }
@@ -746,16 +1173,10 @@ async function loadHealth() {
   try {
     const s = await api("/health");
     payCurrency = s.paypal_currency || payCurrency;
-    $("#status").replaceChildren(
-      h("span", { class: `chip ${s.paypal ? "ok" : "off"}` }, s.paypal ? `PayPal ${s.paypal_env}` : "PayPal not set up"),
-      h("span", { class: `chip ${s.gmail ? "ok" : "off"}` }, s.gmail ? "Gmail receipts on" : "Gmail not set up"),
-      h("span", { class: `chip ${s.push ? "ok" : "off"}` }, s.push ? "Push on" : "Push not set up"),
-      h("span", { class: `chip ${s.storage === "mongodb" ? "ok" : "off"}`, title: s.storage === "mongodb" ? "" : "Data is lost when the server restarts" }, `Storage: ${s.storage}`),
-      h("span", { class: `chip ${s.web_search ? "ok" : "off"}` }, s.web_search ? "Web search on" : "Web search off"),
-      h("span", { class: "chip" }, s.embedding_model.split("/").pop()),
-    );
+    googleReady = Boolean(s.gmail);  // the same Google client signs people in
+    googleVerified = Boolean(s.google_verified);
   } catch {
-    $("#status").replaceChildren(h("span", { class: "chip off" }, "API unreachable"));
+    // status chips are no longer shown; the currency default stays
   }
 }
 
@@ -768,23 +1189,17 @@ let busy = false;
 
 const thread = h("div", { class: "thread" });
 
-function greeting() {
-  const hr = new Date().getHours();
-  return hr < 12 ? "Good morning" : hr < 18 ? "Good afternoon" : "Good evening";
-}
-
 function showEmpty() {
   thread.replaceChildren();
   messages.replaceChildren(h("div", { class: "empty", id: "empty" },
-    h("div", { class: "eyebrow" }, `${greeting()} · Your PayPal shopping agent`),
     h("h2", {}, "What are we shopping for today?"),
-    h("p", {}, "I find the best deals, check whether anyone in your contacts sells, repairs or just bought it, and pay the store with PayPal."),
+    h("p", {}, "I find deals in local stores, check if someone you know can help, and pay the store with PayPal."),
     h("div", { class: "suggestions" }, SUGGESTIONS.map((s) => h("button", { class: "suggestion", type: "button", onclick: () => send(s.text) },
       h("span", { class: `ico ${s.tone}` }, icon(s.icon)),
       h("span", { class: "grow" }, h("strong", {}, s.text), h("span", { class: "sub" }, s.sub)),
       icon("arrow", "sm"),
     ))),
-    h("div", { class: "trust" }, icon("shield", "sm"), "Checkout runs on PayPal, and the money goes straight to the store."),
+    h("div", { class: "trust" }, icon("shield", "sm"), "Pay with PayPal, straight to the store."),
   ));
 }
 
@@ -799,22 +1214,44 @@ function addMsg(node) {
 const botMsg = (...kids) => h("div", { class: "msg bot" },
   h("div", { class: "avatar-bot" }, icon("logo")), h("div", { class: "bot-body" }, ...kids));
 
+// The deals in a reply. On a phone they sit side by side and swipe; dots show which is in view.
+function dealList(deals) {
+  const row = h("div", { class: "deals" }, deals.map((d, i) => dealCard(d, i)));
+  const dots = deals.length > 1 ? h("div", { class: "deal-dots" }, deals.map((_, i) => h("i", { class: i ? "" : "on" }))) : null;
+  if (dots) {
+    row.addEventListener("scroll", () => {
+      const card = row.firstElementChild;
+      const at = Math.round(row.scrollLeft / (card.offsetWidth + 10));
+      [...dots.children].forEach((dot, i) => dot.classList.toggle("on", i === Math.min(at, deals.length - 1)));
+    }, { passive: true });
+  }
+  return h("div", {},
+    h("div", { class: "section-label" }, icon("tag"), plural(deals.length, "deal"),
+      deals.length > 1 ? h("span", { class: "swipe-hint" }, "Swipe for more →") : null),
+    row, dots);
+}
+
 function dealCard(d, i) {
   const url = safeUrl(d.url);
   const canSelect = d.payable && d.deal_id;
   const store = d.store || "Store";
+  const media = h("div", { class: "deal-media loading" },
+    icon("bag"),
+    h("span", { class: "badge left" }, `#${i + 1}`),
+    i === 0 && d.price ? h("span", { class: "badge right" }, icon("sparkles", "xs"), "Best price") : null,
+  );
+  loadDealPhoto(media, d, i);
   return h("div", { class: "deal", "data-deal-id": d.deal_id || null },
-    h("div", { class: `deal-media m${i % 3}` },
-      icon("bag"),
-      h("span", { class: "badge left" }, `#${i + 1}`),
-      i === 0 && d.price ? h("span", { class: "badge right" }, icon("sparkles", "xs"), "Best price") : null,
-    ),
+    media,
     h("div", { class: "deal-body" },
       h("div", { class: "deal-store" }, h("span", { class: "store-logo" }, store[0]), store),
       d.title ? h("div", { class: "deal-title" }, d.title) : null,
       h("div", { class: `deal-price${d.price ? "" : " none"}` }, d.price || "Price not listed"),
+      canSelect && d.charge_amount && d.currency !== payCurrency ? h("span", { class: "charge-chip" },
+        `≈ ${fmtMoney(d.charge_amount, payCurrency)} with`, h("span", { class: "pp-mark" }, "Pay", h("span", {}, "Pal"))) : null,
       d.details ? h("div", { class: "deal-details", title: d.details }, d.details) : null,
       d.note ? h("div", { class: "deal-note" }, icon("pin", "xs"), d.note) : null,
+      d.miss ? h("div", { class: "deal-note miss" }, icon("info", "xs"), `Doesn't fit: ${d.miss}`) : null,
       !canSelect && d.unpayable_reason ? h("div", { class: "deal-note" }, icon("external", "xs"), `Pay on the store's site: ${d.unpayable_reason}`) : null,
       h("div", { class: "deal-actions" },
         canSelect ? h("button", { class: "btn select-btn", type: "button", onclick: () => toggleSelect(d.deal_id) }, "Add to cart") : null,
@@ -825,24 +1262,278 @@ function dealCard(d, i) {
   );
 }
 
+// The server reads the photo from the store's page, so cards show first and the photo
+// fades in after. With no photo (or the store blocks it) the card keeps its coloured icon.
+async function loadDealPhoto(media, d, i) {
+  const noPhoto = () => { media.className = `deal-media m${i % 3}`; };
+  if (!d.deal_id || !safeUrl(d.url)) return noPhoto();
+  let image;
+  try {
+    ({ image } = await api(`/deals/${uidPath()}/${encodeURIComponent(d.deal_id)}/image`));
+  } catch {
+    return noPhoto();
+  }
+  if (!safeUrl(image)) return noPhoto();
+  const img = h("img", { src: image, alt: d.title || "", referrerpolicy: "no-referrer" });
+  img.onerror = noPhoto;
+  img.onload = () => {
+    media.className = "deal-media photo";
+    media.querySelector(":scope > .i")?.remove();
+    media.prepend(img);
+    media.append(h("span", { class: "source" }, new URL(d.url).hostname.replace(/^www\./, "")));
+  };
+}
+
+// A cart line's picture: the deal's photo once it has been found, otherwise the bag icon.
+const cartThumb = (item) => safeUrl(item.image)
+  ? h("div", { class: "thumb photo" }, h("img", { src: item.image, alt: "", referrerpolicy: "no-referrer" }))
+  : h("div", { class: "thumb" }, icon("bag"));
+
+// A contact card. Its body depends on where Scout is with them: looking them up, asking
+// which of several people they are, described, or not described (with a way to add one).
+// Search results have no contact_id and aren't editable; the full list is, through the
+// card's menu: edit the whole card, search the web again, or delete.
 function contactCard(c) {
-  const meta = [c.phone, c.email].filter(Boolean).join(" · ");
-  return h("div", { class: "contact" },
-    h("div", { class: "initials" }, initials(c.name)),
-    h("div", { class: "info" },
-      h("div", { class: "contact-head" },
-        h("strong", {}, c.name),
-        typeof c.score === "number" ? h("span", { class: "pill agent", title: "Cosine similarity between the need and this contact's profile" }, `${Math.round(c.score * 100)}% match`) : null,
-      ),
-      c.profile ? h("p", {}, c.profile) : null,
-      meta ? h("div", { class: "contact-meta" }, meta) : null,
-    ),
+  const editable = Boolean(c.contact_id);
+  const first = () => (c.name || "").split(/\s+/)[0];
+  const info = h("div", { class: "info" });
+  const card = h("div", { class: "contact" }, h("div", { class: "initials" }, initials(c.name)), info);
+  const head = (withMenu) => h("div", { class: "contact-head" },
+    h("strong", {}, c.name),
+    typeof c.score === "number" ? h("span", { class: "pill agent", title: "Cosine similarity between the need and this contact's profile" }, `${Math.round(c.score * 100)}% match`) : null,
+    withMenu ? h("button", { class: "more", type: "button", "aria-label": `More for ${c.name}`, "aria-haspopup": "menu",
+      "aria-expanded": "false", onclick: (e) => { e.stopPropagation(); toggleMenu(e.currentTarget); } }, icon("more", "sm")) : null,
   );
+  const metaLine = () => {
+    const meta = [c.phone, c.email].filter(Boolean).join(" · ");
+    return meta ? h("div", { class: "contact-meta" }, meta) : null;
+  };
+  const link = (url) => h("a", { href: safeUrl(url), target: "_blank", rel: "noopener" }, host(url));
+  const path = () => `/contacts/${uidPath()}/${encodeURIComponent(c.contact_id)}`;
+
+  function show() {
+    closeMenu();
+    card.classList.remove("editing");
+    const status = contactStatus(c);
+    const source = DESCRIBED_BY[c.profile_source];
+    let body = [];
+    if (c.profile && LOOKING.has(status)) {  // searched again: the description stays meanwhile
+      body = [h("div", { class: "busy" }, h("span", { class: "spinner" }), "Searching the web again…"),
+        h("p", { class: "old" }, c.profile),
+        h("div", { class: "src" }, "Current description · kept until a new one is found")];
+    } else if (status === "check") {
+      body = [whichOne()];
+    } else if (c.profile) {
+      body = [h("p", {}, c.profile),
+        source ? h("div", { class: "src" }, icon(source[0], "xs"), source[1],
+          c.links?.length ? [" · from ", ...c.links.flatMap((u, i) => [i ? ", " : "", link(u)])] : null) : null];
+    } else if (LOOKING.has(status)) {
+      body = [h("div", { class: "busy" }, h("span", { class: "spinner" }), "Looking up…")];
+    } else if (editable) {
+      body = [h("button", { class: "empty-desc", type: "button", onclick: () => edit("profile") },
+        status === "nothing" ? "Scout couldn't find anything about them." : "What do they do?", h("b", {}, "Add a description")),
+        status === "waiting" ? h("div", { class: "src" }, "Not looked up yet") : null];
+    }
+    // replaceChildren (unlike h) would show a null as the text "null", so drop the gaps
+    info.replaceChildren(...[head(editable), ...body, metaLine()].filter(Boolean));
+  }
+
+  // The card's menu: edit, search again (full names only: Scout doesn't search the web for a
+  // first name alone), delete.
+  let menu = null;
+  const onKey = (e) => { if (e.key === "Escape") closeMenu(); };
+  function closeMenu() {
+    if (!menu) return;
+    menu.remove();
+    menu = null;
+    card.querySelector(".more")?.setAttribute("aria-expanded", "false");
+    document.removeEventListener("click", closeMenu);
+    document.removeEventListener("keydown", onKey);
+  }
+  function toggleMenu(btn) {
+    if (menu) return closeMenu();
+    const item = (name, label, run, cls) => h("button", { type: "button", role: "menuitem", class: cls,
+      onclick: () => { closeMenu(); run(); } }, icon(name, "sm"), label);
+    menu = h("div", { class: "card-menu", role: "menu", "aria-label": c.name },
+      item("pencil", "Edit contact", () => edit()),
+      isFullName(c.name) ? item("refresh", "Search again", searchAgain) : null,
+      h("hr"),
+      item("trash", "Delete contact", confirmDelete, "danger"));
+    card.append(menu);
+    btn.setAttribute("aria-expanded", "true");
+    menu.querySelector("button").focus();
+    setTimeout(() => {  // after this click has finished bubbling
+      document.addEventListener("click", closeMenu);
+      document.addEventListener("keydown", onKey);
+    });
+  }
+
+  // Several people online have this name: tick every one that's this contact.
+  function whichOne() {
+    const open = (c.people || []).filter((p) => p.state === "open");
+    const again = Boolean(c.profile);  // searched again: they can keep what they had
+    const ticked = new Set();
+    const save = h("button", { class: "btn small", type: "button", disabled: true }, "Save");
+    const rows = open.map((p) => {
+      const box = h("input", { type: "checkbox" });
+      const row = h("label", { class: "person" }, box, h("span", {},
+        h("b", {}, p.title), p.summary ? h("span", { class: "sum" }, p.summary) : null,
+        p.links?.length ? h("span", { class: "links" }, ...p.links.map(link)) : null));
+      box.addEventListener("change", () => {
+        if (box.checked) ticked.add(p.id); else ticked.delete(p.id);
+        row.classList.toggle("on", box.checked);
+        save.disabled = !ticked.size;
+        save.textContent = ticked.size ? `Save ${ticked.size}` : "Save";
+      });
+      return row;
+    });
+    save.addEventListener("click", () => answer([...ticked], []));  // the unticked are taken as "not them"
+    return h("div", { class: "ask" },
+      h("div", { class: "q" }, icon("info", "xs"), `${again ? "Found again. " : ""}Which of these is ${first()}? Tick all that apply.`), ...rows,
+      h("div", { class: "acts" }, save,
+        h("button", { class: "link", type: "button", onclick: () => answer([], open.map((p) => p.id)) },
+          again ? "Keep the old description" : "None of these")));
+  }
+
+  async function answer(yes, no) {
+    info.classList.add("saving");
+    try {
+      Object.assign(c, await api(`${path()}/people`, { method: "POST", body: JSON.stringify({ yes, no }) }));
+      show();
+      renderContactsTop();
+    } catch (e) {
+      toast(e.message, true);
+    } finally {
+      info.classList.remove("saving");
+    }
+  }
+
+  // The whole card: name, number, email, where they work, and what they do.
+  function edit(focus = "name") {
+    closeMenu();
+    const field = (label, name, value, attrs = {}) => h("label", { class: "field" }, label,
+      attrs.rows ? h("textarea", { name, ...attrs }, value || "") : h("input", { type: "text", name, value: value || "", autocomplete: "off", ...attrs }));
+    const save = h("button", { class: "btn small", type: "submit", disabled: true }, "Save");
+    const form = h("form", { class: "contact-form" },
+      field("Name", "name", c.name, { required: true }),
+      h("div", { class: "two" },
+        field("Phone", "phone", c.phone, { inputmode: "tel" }),
+        field("Email", "email", c.email, { inputmode: "email", placeholder: "Optional" })),
+      field("Works at", "company", c.company, { placeholder: "Company, shop or market" }),
+      field("What they do, sell or know about", "profile", c.profile, { rows: "4" }),
+      h("p", { class: "hint" }, `Scout reads this to suggest ${first() || "them"} when you shop.`),
+      h("div", { class: "desc-actions" },
+        h("button", { class: "btn ghost small", type: "button", onclick: show }, "Cancel"), save));
+    const values = () => Object.fromEntries(["name", "phone", "email", "company", "profile"]
+      .map((k) => [k, form.elements.namedItem(k).value.trim()]));
+    const before = JSON.stringify(values());
+    form.addEventListener("input", () => { save.disabled = !values().name || JSON.stringify(values()) === before; });
+
+    async function submit(v, onConflict = null) {
+      save.disabled = true;
+      try {
+        const out = await api(path(), { method: "PUT", body: JSON.stringify({
+          name: v.name, phone: v.phone || null, email: v.email || null, company: v.company || null,
+          profile: v.profile, on_conflict: onConflict }) });
+        if (out.conflict) {
+          save.disabled = false;
+          const back = { number: "phone", email: "email", name: "name" }[out.conflict.same];
+          return clashSheet(out.conflict, v.name, v.profile, (choice) => submit(v, choice),
+            () => form.elements.namedItem(back).focus());
+        }
+        Object.assign(c, out);
+        show();
+        toast(`Saved ${c.name}.`);
+        loadContacts();  // the name may sort it elsewhere, and a replaced contact is gone
+      } catch (e) {
+        toast(e.message, true);
+        save.disabled = false;
+      }
+    }
+    form.addEventListener("submit", (e) => { e.preventDefault(); submit(values()); });
+    card.classList.add("editing");
+    info.replaceChildren(head(false), form);
+    form.elements.namedItem(focus).focus();
+  }
+
+  async function searchAgain() {
+    try {
+      Object.assign(c, await api(`${path()}/search-again`, { method: "POST" }));
+      show();
+      toast(`Looking ${first()} up again`);
+      loadContacts();  // and keeps checking until the search is done
+    } catch (e) {
+      toast(e.message, true);
+    }
+  }
+
+  function confirmDelete() {
+    openSheet({ icon: "trash", tone: "err", title: `Delete ${c.name}?`,
+      text: "They'll be removed from your contacts, and Scout won't suggest them when you shop. This can't be undone.",
+      actions: [
+        { label: "Delete contact", cls: "btn block danger", run: async () => {
+          await api(path(), { method: "DELETE" });
+          contacts.list = contacts.list.filter((x) => x.contact_id !== c.contact_id);
+          renderContacts();
+          toast(`Deleted ${c.name}.`);
+        } },
+        { label: "Keep them", cls: "btn block ghost" },
+      ] });
+  }
+
+  show();
+  return card;
+}
+
+// A question that rises from the bottom of the screen (a centred dialog on wide screens),
+// with a few answers. An answer's run may be async; the sheet closes once it's done.
+function openSheet({ icon: name, tone = "", title, text, body = null, actions }) {
+  const titleId = `sheet-${Date.now()}`;
+  const onKey = (e) => { if (e.key === "Escape") close(); };
+  const close = () => { wrap.remove(); document.removeEventListener("keydown", onKey); };
+  const buttons = actions.map((a) => h("button", { class: a.cls, type: "button", onclick: async () => {
+    if (!a.run) return close();
+    buttons.forEach((b) => { b.disabled = true; });
+    try {
+      await a.run();
+      close();
+    } catch (e) {
+      toast(e.message, true);
+      buttons.forEach((b) => { b.disabled = false; });
+    }
+  } }, a.label));
+  const sheet = h("section", { class: "sheet", role: "dialog", "aria-modal": "true", "aria-labelledby": titleId, tabindex: "-1" },
+    h("div", { class: "grab", "aria-hidden": "true" }),
+    h("div", { class: "sheet-title" }, h("span", { class: `badge-ic ${tone}` }, icon(name, "sm")), h("h3", { id: titleId }, title)),
+    text ? h("p", {}, text) : null, body, h("div", { class: "acts" }, ...buttons));
+  const wrap = h("div", { class: "sheet-wrap", onclick: (e) => { if (e.target === wrap) close(); } }, sheet);
+  document.addEventListener("keydown", onKey);
+  document.body.append(wrap);
+  sheet.focus();  // not the first answer: Enter mustn't delete or replace by accident
+}
+
+// A contact being added or edited has a number (or email, or name) another contact already
+// has. decide("replace" | "keep_both") retries with that choice; back returns to the form.
+function clashSheet(clash, newName, newProfile, decide, back) {
+  const short = (text) => (text ? (text.length > 70 ? `${text.slice(0, 70).trimEnd()}…` : text) : "No description yet");
+  const firstOf = (name) => (name || "").split(/\s+/)[0];
+  const sameName = clash.same === "name";
+  openSheet({ icon: "info", title: `This ${clash.same} is already saved`,
+    text: sameName ? `You already have ${clash.name} in your contacts.`
+      : `${clash.same === "email" ? clash.email : clash.phone} belongs to ${clash.name} in your contacts.`,
+    body: h("div", { class: "pair" },
+      h("div", {}, h("small", {}, "SAVED"), h("strong", {}, clash.name), h("span", {}, short(clash.profile))),
+      h("div", { class: "new" }, h("small", {}, "NEW"), h("strong", {}, newName), h("span", {}, short(newProfile)))),
+    actions: [
+      { label: sameName ? "Replace the saved one" : `Replace ${firstOf(clash.name)} with ${firstOf(newName)}`, cls: "btn block", run: () => decide("replace") },
+      { label: "Keep both", cls: "btn block ghost", run: () => decide("keep_both") },
+      { label: `Change the ${clash.same}`, cls: "link", run: back },
+    ] });
 }
 
 // ---------- live progress ----------
 
-const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+const plural = (n, word, many) => `${n} ${n === 1 ? word : many || `${word}s`}`;
 
 const STEP_LABELS = {
   get_profile: () => "Checking what I know about you",
@@ -852,11 +1543,12 @@ const STEP_LABELS = {
   find_contacts: (i) => `Checking your contacts for ${i.need || "help"}`,
   add_to_cart: () => "Adding it to your cart",
   get_purchases: () => "Checking your purchases",
+  get_cart: () => "Checking your cart",
 };
 // Each tool gets its agent's colour, matching the design system.
 const STEP_ICONS = {
   find_deals: ["tag", "t-deal"], web_search: ["globe", "t-neutral"], find_contacts: ["users", "t-contact"],
-  add_to_cart: ["bag", "t-pay"], get_purchases: ["receipt", "t-pay"], get_profile: ["user", "t-neutral"], remember: ["user", "t-neutral"],
+  add_to_cart: ["bag", "t-pay"], get_cart: ["bag", "t-pay"], get_purchases: ["receipt", "t-pay"], get_profile: ["user", "t-neutral"], remember: ["user", "t-neutral"],
 };
 const stepIcon = (tool) => STEP_ICONS[tool] || ["sparkles", "t-neutral"];
 
@@ -865,10 +1557,16 @@ const stepLabel = (tool, input) => (STEP_LABELS[tool] || (() => `Running ${tool}
 function stepSummary(tool, output, status) {
   if (status === "error") return truncate(String(output), 140);
   if (tool === "web_search" && Array.isArray(output)) return plural(output.length, "result");
-  if (tool === "find_deals") return output?.deals?.length ? `${plural(output.deals.length, "deal")} found` : "No deals found";
+  if (tool === "find_deals") {
+    const n = output?.deals?.length || 0;
+    if (!n) return "No deals found";
+    if (typeof output.fits !== "number") return `${plural(n, "deal")} found`;
+    return output.fits ? `${output.fits} fit${n > output.fits ? ` · ${n - output.fits} close` : ""}` : `${plural(n, "close match", "close matches")}`;
+  }
   if (tool === "find_contacts" && Array.isArray(output)) return output.length ? `${plural(output.length, "contact")} could help` : "No matching contacts";
   if (tool === "get_profile") return Object.keys(output || {}).length ? plural(Object.keys(output).length, "saved fact") : "Nothing saved yet";
   if (tool === "add_to_cart" && output?.total) return `Cart total ${fmtMoney(output.total, output.currency)}`;
+  if (tool === "get_cart" && Array.isArray(output)) return output.length ? plural(output.length, "item") : "Cart is empty";
   return "Done";
 }
 
@@ -895,23 +1593,23 @@ function createTimeline() {
         const [ic, tone] = stepIcon(ev.tool);
         const dot = h("span", { class: `tl-dot running ${tone}` }, icon(ic));
         const status = h("span", { class: "tl-status" });
-        const body = h("div", { class: "tl-body" }, h("pre", {}, JSON.stringify(ev.input, null, 2)));
         const children = h("div", { class: "timeline tl-children" });
-        container(ev.parent).append(h("div", { class: "tl-step" },
+        const row = h("div", { class: "tl-step running" },
           h("details", {},
-            h("summary", {}, dot, h("span", { class: "tl-label" }, stepLabel(ev.tool, ev.input)),
-              ev.input?.query ? h("code", { class: "tl-query" }, ev.input.query) : null, status),
-            body),
-          children));
-        steps.set(ev.id, { dot, status, body, children, started: Date.now() });
+            h("summary", { onclick: (e) => e.preventDefault() },  // nothing to open: the raw input isn't shown
+              dot, h("span", { class: "tl-label" }, stepLabel(ev.tool, ev.input)),
+              ev.input?.query ? h("code", { class: "tl-query" }, ev.input.query) : null, status)),
+          children);
+        container(ev.parent).append(row);
+        steps.set(ev.id, { row, dot, status, children, started: Date.now() });
       } else if (ev.type === "step_done") {
         const s = steps.get(ev.id);
         if (!s) return;
         running--;
+        s.row.classList.remove("running");
         s.dot.classList.remove("running");
         s.dot.classList.add(ev.status === "error" ? "err" : "ok");
         s.status.textContent = `${stepSummary(ev.tool, ev.output, ev.status)} · ${((Date.now() - s.started) / 1000).toFixed(1)}s`;
-        s.body.append(h("pre", {}, truncate(typeof ev.output === "string" ? ev.output : JSON.stringify(ev.output, null, 2), 3000)));
       }
       refresh();
     },
@@ -932,9 +1630,7 @@ function renderReply({ reply, tool_calls = [] }, worklog) {
   return botMsg(
     worklog,
     h("div", { class: "md", html: md(reply || "(no reply)") }),
-    deals?.length ? h("div", {},
-      h("div", { class: "section-label" }, icon("tag"), plural(deals.length, "deal")),
-      h("div", { class: "deals" }, deals.map((d, i) => dealCard(d, i)))) : null,
+    deals?.length ? dealList(deals) : null,
     contacts?.length ? h("div", {},
       h("div", { class: "section-label", style: "color: var(--contact)" }, icon("users"),
         h("span", { style: "color: var(--text)" }, contacts.length === 1 ? "Someone you know can help" : `${contacts.length} people you know can help`)),
@@ -948,34 +1644,49 @@ async function send(text) {
   if ((!text && !image) || busy) return;
   if (!text) text = "Here's a photo.";
   busy = true;
-  sendBtn.disabled = true;
+  replyStop = new AbortController();
+  setSendButton("stop");
   msgInput.value = "";
   autoGrow();
   clearAttachment();
-  addMsg(h("div", { class: "msg user" }, image ? h("img", { src: image.preview, alt: "Attached photo" }) : null, text));
+  const asked = addMsg(h("div", { class: "msg user" }, image ? h("img", { src: image.preview, alt: "Attached photo" }) : null, text));
   const log = createTimeline();
   const pending = addMsg(botMsg(h("div", { class: "live-trace" }, log.el)));
 
   const body = { user_id: uid(), message: text };
-  const loc = $("#location").value.trim();
-  if ($("#shareLoc").checked && loc) body.location = loc;
-  if (image) body.image = { media_type: image.media_type, data: image.data };
+  if (area()) body.location = area();
+  if (image) body.image = { media_type: image.media_type, data: image.data, thumb: image.thumb };
 
   try {
     const out = await streamChat(body, (ev) => {
       log.handle(ev);
       messages.scrollTop = messages.scrollHeight;
-    });
+    }, replyStop.signal);
     pending.replaceWith(renderReply(out, log.finish()));
     syncSelected();
     loadCart();  // the agent may have added something
+    loadChatList();
     loadProfile();
   } catch (e) {
-    const worklog = log.finish();
-    pending.replaceWith(...[worklog && botMsg(worklog), h("div", { class: "msg error" }, e.message)].filter(Boolean));
+    if (e.stopped || replyStop?.signal.aborted) {
+      // Stopped: Scout keeps nothing from this turn. Put the question back to edit and resend.
+      log.finish();
+      pending.remove();
+      asked.classList.add("stopped");
+      asked.append(h("div", { class: "stopped-tag" }, icon("stop", "xs"), "Stopped"));
+      if (!msgInput.value) {
+        msgInput.value = image && text === "Here's a photo." ? "" : text;
+        autoGrow();
+      }
+      if (image && !attached) showAttachment(image);
+    } else {
+      const worklog = log.finish();
+      pending.replaceWith(...[worklog && botMsg(worklog), h("div", { class: "msg error" }, e.message)].filter(Boolean));
+    }
   } finally {
     busy = false;
-    sendBtn.disabled = false;
+    replyStop = null;
+    setSendButton("send");
     messages.scrollTop = messages.scrollHeight;
     msgInput.focus();
   }
@@ -986,29 +1697,145 @@ function autoGrow() {
   msgInput.style.height = Math.min(msgInput.scrollHeight, 160) + "px";
 }
 
-$("#chatForm").addEventListener("submit", (e) => { e.preventDefault(); send(msgInput.value); });
+let replyStop = null;  // aborts the reply in progress
+
+// While Scout works, the send button is a Stop button.
+function setSendButton(mode) {
+  const stopping = mode === "stop";
+  sendBtn.classList.toggle("stop", stopping);
+  sendBtn.replaceChildren(icon(stopping ? "stop" : "send"));
+  sendBtn.setAttribute("aria-label", stopping ? "Stop" : "Send");
+  sendBtn.disabled = false;
+}
+
+function stopReply() {
+  api(`/chat/${uidPath()}/stop`, { method: "POST" }).catch(() => {});  // the server stops before its next step
+  replyStop?.abort();
+}
+
+$("#chatForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  if (busy) stopReply(); else send(msgInput.value);
+});
 msgInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(msgInput.value); }
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!busy) send(msgInput.value); }  // Enter never stops
 });
 msgInput.addEventListener("input", autoGrow);
 
 $("#resetBtn").addEventListener("click", async () => {
   try { await api(`/chat/${uidPath()}/reset`, { method: "POST" }); } catch {}
   showEmpty();
+  loadChatList();
 });
 
-function syncLocChip() {
-  const on = $("#shareLoc").checked;
-  $("#locChip").classList.toggle("on", on);
-  $("#locLabel").hidden = on;
+// ---------- location ----------
+// The area lives on the account, so it follows you to other devices. The browser's
+// coordinates are turned into an area name on the server and never stored.
+
+let geoPermission = "prompt";  // "granted", "denied" or "prompt"
+navigator.permissions?.query({ name: "geolocation" }).then((status) => {
+  geoPermission = status.state;
+  status.onchange = () => { geoPermission = status.state; syncLoc(); };
+  syncLoc();
+}).catch(() => {});
+
+const area = () => me?.location || "";
+
+function locate() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) return reject(Object.assign(new Error("This browser can't share its location."), { code: 2 }));
+    navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 15000, maximumAge: 600000 });
+  });
 }
-$("#shareLoc").addEventListener("change", (e) => {
-  $("#location").disabled = !e.target.checked;
-  local.set("shareLoc", e.target.checked ? "1" : "");
-  syncLocChip();
-  if (e.target.checked) $("#location").focus();
+
+// The device's area, e.g. "Ikeja, Lagos". Throws an error with code 1 when access is blocked.
+async function deviceArea() {
+  const { coords } = await locate();
+  const { place } = await api(`/geo/reverse?lat=${coords.latitude}&lon=${coords.longitude}`);
+  if (!place) throw new Error("Couldn't tell which area that is. Type it instead.");
+  return place;
+}
+
+async function saveArea(place) {
+  if (isGuest()) {
+    me.location = place || null;
+    visit.set("guestArea", place || "");  // a guest's area lasts for this visit
+  } else {
+    me = await api("/auth/me", { method: "PATCH", body: JSON.stringify({ location: place }) });
+  }
+  syncLoc();
+  syncAccount();
+}
+
+function syncLoc() {
+  const known = Boolean(area());
+  $("#pinBtn").classList.toggle("off", !known);
+  $("#pinTip").textContent = known ? `Deals near ${area()}` : "Set your area";
+  $("#pinBtn").setAttribute("aria-label", known ? `Your area: ${area()}. Change it` : "Set your area");
+  $("#locNoteRow").hidden = known || !me || !$("#areaBar").hidden;
+  // the pin itself opens the box for typing an area
+  $("#locNote").replaceChildren(...(geoPermission === "denied"
+    ? [icon("info", "xs"), "Location access is blocked. Click the 🔒 in the address bar to allow it"]
+    : [icon("info", "xs"), h("button", { type: "button", onclick: useMyArea }, "Allow location access"), "for deals near you"]));
+}
+
+function openPin() {
+  $("#location").value = area();
+  $("#areaBar").hidden = false;
+  $("#locNoteRow").hidden = true;
+  $("#location").focus();
+  $("#location").select();
+}
+function closePin() {
+  $("#areaBar").hidden = true;
+  syncLoc();
+}
+async function saveTypedArea() {
+  const typed = $("#location").value.trim();
+  closePin();
+  if (typed === area()) return;
+  try {
+    await saveArea(typed);
+    if (typed) toast(`Showing deals near ${typed}.`);
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
+async function useMyArea() {
+  const btn = $("#useMine");
+  btn.disabled = true;
+  try {
+    await saveArea(await deviceArea());
+    closePin();
+    toast(`Showing deals near ${area()}.`);
+  } catch (e) {
+    if (e.code === 1) { geoPermission = "denied"; syncLoc(); toast("Location access is blocked. Click the 🔒 in the address bar to allow it, or type your area.", true); }
+    else toast(e.message || "Couldn't find your location. Type your area instead.", true);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+$("#pinBtn").addEventListener("click", () => ($("#areaBar").hidden ? openPin() : saveTypedArea()));
+$("#useMine").addEventListener("click", useMyArea);
+$("#areaDone").addEventListener("click", saveTypedArea);
+$("#location").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); saveTypedArea(); }
+  if (e.key === "Escape") { e.stopPropagation(); closePin(); }
 });
-$("#location").addEventListener("change", (e) => local.set("location", e.target.value));
+
+// iPhone keyboards slide over the page rather than shrinking it, which hid the message box
+// and the area box while typing. Size the chat to the part of the screen that's visible.
+if (window.visualViewport) {
+  const fitToKeyboard = () => {
+    document.documentElement.style.setProperty("--visible-height", `${Math.round(visualViewport.height)}px`);
+    if (window.scrollY) window.scrollTo(0, 0);
+  };
+  visualViewport.addEventListener("resize", fitToKeyboard);
+  visualViewport.addEventListener("scroll", fitToKeyboard);
+  fitToKeyboard();
+}
 
 // ---------- photo attachments ----------
 
@@ -1027,7 +1854,30 @@ async function shrinkImage(file) {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height);
   const url = canvas.toDataURL("image/jpeg", 0.85);
-  return { media_type: "image/jpeg", data: url.split(",")[1], preview: url };
+  return { media_type: "image/jpeg", data: url.split(",")[1], preview: url, thumb: thumbnail(bmp) };
+}
+
+// A small copy (320px) that's saved with the chat, so the photo shows again after a reload.
+function thumbnail(bmp) {
+  const scale = Math.min(1, 320 / Math.max(bmp.width, bmp.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bmp.width * scale);
+  canvas.height = Math.round(bmp.height * scale);
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL("image/jpeg", 0.7);
+}
+
+function showAttachment(image) {
+  attached = image;
+  $("#attachPreview").replaceChildren(
+    h("img", { src: image.preview, alt: "" }),
+    "Photo attached",
+    h("button", { class: "link", type: "button", onclick: clearAttachment }, "Remove"),
+  );
+  $("#attachPreview").hidden = false;
 }
 
 function clearAttachment() {
@@ -1047,12 +1897,7 @@ $("#fileInput").addEventListener("change", async (e) => {
   } catch {
     return toast("Couldn't read that image.", true);
   }
-  $("#attachPreview").replaceChildren(
-    h("img", { src: attached.preview, alt: "" }),
-    "Photo attached",
-    h("button", { class: "link", type: "button", onclick: clearAttachment }, "Remove"),
-  );
-  $("#attachPreview").hidden = false;
+  showAttachment(attached);
   msgInput.focus();
 });
 
@@ -1109,19 +1954,35 @@ function renderCart() {
     return;
   }
   $("#cartStatus").replaceChildren();
-  const store = cart.items[0].store || "Store";  // a cart holds one store's items
+  // Items grouped by store, in the order they were added. One PayPal payment covers them all.
+  const byStore = new Map();
+  for (const i of cart.items) {
+    const store = i.store || "Store";
+    byStore.set(store, [...(byStore.get(store) || []), i]);
+  }
+  const stores = [...byStore.keys()];
+  const several = stores.length > 1;
+  const item = (i) => h("div", { class: "cart-item" },
+    cartThumb(i),
+    h("div", {}, h("strong", { title: i.title || i.store }, i.title || i.store),
+      several ? null : h("div", { class: "contact-meta" }, i.store)),
+    h("div", { class: "cart-price" }, fmtMoney(i.charge_amount || i.amount, cart.currency),
+      i.currency && i.currency !== cart.currency ? h("small", {}, fmtMoney(i.amount, i.currency)) : null),
+    h("button", { class: "remove-x", type: "button", title: "Remove", onclick: () => toggleSelect(i.deal_id) }, icon("x", "sm")),
+  );
   $("#cartItems").replaceChildren(
     h("div", { class: "merchant" },
-      h("span", { class: "store-logo" }, store[0]),
-      h("div", { class: "grow" }, h("strong", {}, store), h("p", { class: "hint" }, "Paid directly to the store's PayPal")),
+      h("div", { class: "logos" }, ...stores.slice(0, 3).map((s) => h("span", { class: "store-logo" }, s[0]))),
+      h("div", { class: "grow" },
+        h("strong", {}, several ? `${stores.length} stores` : stores[0]),
+        h("p", { class: "hint" }, several
+          ? `One PayPal payment covers ${stores.length === 2 ? "both" : `all ${stores.length}`}`
+          : "Paid directly to the store's PayPal")),
       icon("shield"),
     ),
-    h("div", {}, ...cart.items.map((i) => h("div", { class: "cart-item" },
-      h("div", { class: "thumb" }, icon("bag")),
-      h("div", {}, h("strong", { title: i.title || i.store }, i.title || i.store), h("div", { class: "contact-meta" }, i.store)),
-      h("div", { class: "cart-price" }, fmtMoney(i.amount, cart.currency)),
-      h("button", { class: "remove-x", type: "button", title: "Remove", onclick: () => toggleSelect(i.deal_id) }, icon("x", "sm")),
-    ))),
+    ...[...byStore].map(([store, items]) => h("div", { class: several ? "cart-group" : null },
+      several ? h("div", { class: "caps" }, store) : null,
+      ...items.map(item))),
   );
   $("#cartTotal").textContent = fmtMoney(cart.total, cart.currency);
   $("#cartFooter").hidden = false;
@@ -1245,6 +2106,9 @@ async function loadGmail() {
       box.replaceChildren(h("div", { class: "row", style: "justify-content: space-between; align-items: center;" },
         h("span", { class: "ok-text" }, `Connected: ${s.email}`),
         h("button", { class: "link", type: "button", onclick: disconnectGmail }, "Disconnect")));
+    } else if (!googleVerified) {
+      box.replaceChildren(lockedGoogleButton("Connect Gmail", false),
+        h("p", { class: "hint" }, "Once Google approves Scout, it'll watch for the store's receipt and follow up for you."));
     } else {
       box.replaceChildren(h("a", { class: "btn small", href: `/google/connect?user_id=${uidPath()}` }, "Connect Gmail"));
     }
@@ -1304,96 +2168,331 @@ async function enablePush() {
 }
 
 // ---------- contacts ----------
+// Contacts come in from Google Contacts, the phone's picker, a .vcf/.csv file or a form.
+// The user reviews who to add; Scout saves them and looks full names up in the background,
+// asking on the card when a name matches several people.
+
+const DESCRIBED_BY = {
+  web: ["globe", "Written by Scout from a web search"],
+  confirmed: ["check", "Confirmed by you"],
+  notes: ["sparkles", "Written by Scout from your notes"],
+  you: ["user", "Written by you"],
+};
+const LOOKUP_CAP = 200;
+const LOOKING = new Set(["queued", "looking_up", "notes"]);
+const UNDESCRIBED = new Set(["nothing", "skipped", "waiting"]);
+const canPickContacts = "contacts" in navigator && "ContactsManager" in window;
+const onIPhone = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const isFullName = (name) => (name || "").trim().split(/\s+/).filter((w) => w.length > 1).length >= 2;
+const host = (url) => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; } };
+const contactStatus = (c) => c.status || (c.profile ? "done" : "nothing");  // contacts saved before statuses
+
+const contacts = { list: [], filter: "all", searching: false, cards: new Map(), poll: null };
 
 async function loadContacts() {
-  $("#contactsLabel").textContent = "All contacts";
-  $("#showAll").hidden = true;
-  const list = $("#contactList");
+  clearTimeout(contacts.poll);
   try {
-    const { contacts } = await api(`/contacts/${uidPath()}`);
-    list.replaceChildren(...(contacts.length
-      ? contacts.map(contactCard)
-      : [h("p", { class: "hint" }, "No contacts yet. Add some in the Import tab.")]));
+    contacts.list = (await api(`/contacts/${uidPath()}`)).contacts;
   } catch (e) {
-    list.replaceChildren(h("p", { class: "error-text" }, e.message));
+    // a blip (Scout restarting, a dropped connection) keeps what's shown and tries again
+    if (contacts.list.length && (e.temporary || e.message.startsWith("Can't reach"))) {
+      contacts.poll = setTimeout(loadContacts, 5000);
+      return;
+    }
+    $("#contactList").replaceChildren(h("p", { class: "error-text" }, e.message));
+    return;
+  }
+  renderContacts();
+  // while lookups run, check back for new descriptions and questions
+  if (contacts.list.some((c) => LOOKING.has(contactStatus(c)))) contacts.poll = setTimeout(loadContacts, 4000);
+}
+
+function renderContacts() {
+  const flowOpen = !$("#contactsFlow").hidden;
+  $("#addContactsBtn").hidden = !contacts.list.length || flowOpen;
+  if (!contacts.list.length) {
+    if (!flowOpen) showContactSources();
+    return;
+  }
+  renderContactsTop();
+  if (contacts.searching) return;
+  const shown = contacts.list.filter((c) => contacts.filter === "all"
+    || (contacts.filter === "check" && contactStatus(c) === "check")
+    || (contacts.filter === "none" && UNDESCRIBED.has(contactStatus(c))));
+  $("#contactsLabel").textContent = { all: "All contacts", check: "To check", none: "No description" }[contacts.filter];
+  $("#showAll").hidden = contacts.filter === "all";
+  // keep the cards that haven't changed, so a poll doesn't wipe a half-written edit or ticks
+  const cards = new Map();
+  $("#contactList").replaceChildren(...(shown.length ? shown.map((c) => {
+    const stamp = `${c.updated_at}|${contactStatus(c)}`;
+    const kept = contacts.cards.get(c.contact_id);
+    const card = kept?.stamp === stamp ? kept.card : contactCard(c);
+    cards.set(c.contact_id, { stamp, card });
+    return card;
+  }) : [h("p", { class: "hint" }, "Nobody here.")]));
+  contacts.cards = cards;
+}
+
+// Progress, the "more waiting" line, the "to check" nudge, and the filter chips.
+function renderContactsTop() {
+  const list = contacts.list;
+  const count = (test) => list.filter((c) => test(contactStatus(c), c)).length;
+  const looking = count((s) => LOOKING.has(s));
+  // this run: the lookups queued since the oldest one still going, not everyone ever looked up
+  // (ISO timestamps from the server sort correctly as text)
+  const runStart = list.filter((c) => LOOKING.has(contactStatus(c)) && c.queued_at).map((c) => c.queued_at).sort()[0];
+  const lookedUp = count((s, c) => !LOOKING.has(s) && Boolean(runStart && c.queued_at && c.queued_at >= runStart));
+  const waiting = count((s) => s === "waiting");
+  const toCheck = count((s) => s === "check");
+  const undescribed = count((s) => UNDESCRIBED.has(s));
+  const filterTo = (f) => { contacts.filter = f; contacts.searching = false; $("#need").value = ""; renderContacts(); };
+
+  $("#contactsStatus").replaceChildren(...[
+    looking ? h("div", { class: "lookups" },
+      h("strong", {}, `Looking people up · ${lookedUp} of ${lookedUp + looking}`),
+      h("div", { class: "bar" }, h("i", { style: `width: ${Math.round((lookedUp / (lookedUp + looking)) * 100)}%` })),
+      h("p", { class: "hint" }, "You can keep shopping; this finishes on its own.")) : null,
+    waiting ? h("div", { class: "lookups" }, h("p", { class: "hint" }, `${waiting} more ${waiting === 1 ? "is" : "are"} waiting to be looked up.`),
+      h("button", { class: "btn ghost small", type: "button", onclick: lookUpMore }, `Look up the next ${Math.min(waiting, LOOKUP_CAP)}`)) : null,
+    toCheck ? h("div", { class: "nudge" }, icon("info", "sm"),
+      `${toCheck} contact${toCheck === 1 ? " needs" : "s need"} a quick check`,
+      h("button", { class: "link", type: "button", onclick: () => filterTo("check") }, "Check them")) : null,
+  ].filter(Boolean));
+  const chip = (f, label) => h("button", { class: `chip${contacts.filter === f ? " on" : ""}`, type: "button", onclick: () => filterTo(f) }, label);
+  $("#contactChips").replaceChildren(chip("all", `All ${list.length}`), chip("check", `To check ${toCheck}`), chip("none", `No description ${undescribed}`));
+}
+
+async function lookUpMore() {
+  try {
+    await api(`/contacts/${uidPath()}/lookup-more`, { method: "POST" });
+    loadContacts();
+  } catch (e) {
+    toast(e.message, true);
   }
 }
 
 $("#searchForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const need = $("#need").value.trim();
-  if (!need) return loadContacts();
+  if (!need) { contacts.searching = false; return renderContacts(); }
+  contacts.searching = true;
   const list = $("#contactList");
   $("#contactsLabel").textContent = `Best matches for “${need}”`;
   $("#showAll").hidden = false;
   list.replaceChildren(h("p", { class: "hint" }, "Searching…"));
   try {
-    const { contacts } = await api(`/contacts/${uidPath()}/search?need=${encodeURIComponent(need)}`);
-    list.replaceChildren(...(contacts.length
-      ? contacts.map(contactCard)
+    const { contacts: found } = await api(`/contacts/${uidPath()}/search?need=${encodeURIComponent(need)}`);
+    list.replaceChildren(...(found.length
+      ? found.map(contactCard)
       : [h("p", { class: "hint" }, "No contact scored above the match threshold.")]));
   } catch (err) {
     list.replaceChildren(h("p", { class: "error-text" }, err.message));
   }
 });
-$("#showAll").addEventListener("click", () => { $("#need").value = ""; loadContacts(); });
+$("#showAll").addEventListener("click", () => {
+  $("#need").value = "";
+  contacts.searching = false;
+  contacts.filter = "all";
+  renderContacts();
+});
 
-// ---------- import ----------
+// ---------- adding contacts ----------
+// The flow (ways in, review list, form) takes the panel's place until it's done or closed.
 
-function addImportRow(c = {}) {
-  const row = h("div", { class: "import-row" },
-    h("button", { class: "link remove", type: "button", title: "Remove", onclick: () => row.remove() }, "✕"),
-    h("input", { type: "text", name: "name", placeholder: "Name (required)", value: c.name || "" }),
-    h("div", { class: "pair" },
-      h("input", { type: "text", name: "phone", placeholder: "Phone", value: c.phone || "" }),
-      h("input", { type: "text", name: "email", placeholder: "Email", value: c.email || "" }),
-    ),
-    h("textarea", { name: "notes", rows: "2", placeholder: "What do they do? e.g. sells phones in Yaba" }, c.notes || ""),
-  );
-  $("#importRows").append(row);
+function openContactFlow(...children) {
+  $("#contactsFlow").replaceChildren(...children.filter(Boolean));
+  $("#contactsFlow").hidden = false;
+  $("#contactsMain").hidden = true;
+  $("#addContactsBtn").hidden = true;
 }
 
-$("#addRow").addEventListener("click", () => addImportRow());
-$("#loadSample").addEventListener("click", () => {
-  $("#importRows").replaceChildren();
-  SAMPLE_CONTACTS.forEach(addImportRow);
-});
+function closeContactFlow() {
+  $("#contactsFlow").hidden = true;
+  $("#contactsMain").hidden = false;
+  if (contacts.list.length) renderContacts(); else showContactSources();
+}
 
-$("#importBtn").addEventListener("click", async () => {
-  const status = $("#importStatus");
-  const contacts = [...document.querySelectorAll(".import-row")].map((row) => {
-    const get = (n) => row.querySelector(`[name=${n}]`).value.trim() || null;
-    return { name: get("name"), phone: get("phone"), email: get("email"), notes: get("notes") };
-  }).filter((c) => c.name);
-  if (!contacts.length) {
-    status.replaceChildren(h("p", { class: "error-text" }, "Add at least one contact with a name."));
-    return;
-  }
+// The ways in. `before` runs first when one leads into the app's own screens (from sign-up).
+function contactSourceButtons(before = () => {}, addByHand = null) {
+  const fileInput = h("input", { type: "file", accept: ".vcf,.vcard,.csv,text/vcard,text/csv", hidden: true });
+  fileInput.addEventListener("change", async () => {
+    const file = fileInput.files[0];
+    fileInput.value = "";
+    if (!file) return;
+    before();
+    try {
+      const { contacts: found } = await api(`/contacts/${uidPath()}/parse-file`, {
+        method: "POST", body: JSON.stringify({ filename: file.name, text: await file.text() }),
+      });
+      showContactReview(found, "file");
+    } catch (e) {
+      toast(e.message, true);
+    }
+  });
+  const row = (ico, title, sub, onclick) => h("button", { class: "way-in", type: "button", onclick },
+    h("span", { class: "ico" }, icon(ico)), h("span", { class: "grow" }, h("strong", {}, title), h("span", {}, sub)), icon("arrow", "sm"));
+  const pick = async () => {
+    try {
+      const picked = await navigator.contacts.select(["name", "tel", "email"], { multiple: true });
+      if (!picked.length) return;
+      before();
+      showContactReview(picked.map((p) => ({ name: p.name?.[0], phone: p.tel?.[0], email: p.email?.[0] })), "phone");
+    } catch {
+      toast("Couldn't open your contacts.", true);
+    }
+  };
+  return [
+    ...(googleReady && !googleVerified ? [
+      lockedGoogleButton("Google Contacts", true),
+      h("p", { class: "fine" }, "Google is reviewing Scout. Meanwhile, upload a file or add by hand."),
+    ] : []),
+    googleReady && googleVerified ? h("a", { class: "btn block google dark", href: `/contacts/google/connect?user_id=${uidPath()}`,
+      html: GOOGLE_G + "Import all from Google Contacts" }) : null,
+    googleReady && googleVerified ? h("p", { class: "fine" }, onIPhone ? "If your iPhone syncs contacts to Google" : "Read-only. Scout never changes your contacts.") : null,
+    googleReady && googleVerified ? h("div", { class: "or-line" }, "or") : null,
+    canPickContacts ? row("phone", "Pick from this phone", "Choose some, or Select all", pick) : null,
+    row("file", "Upload a contacts file", onIPhone ? "Contacts app → Lists → All Contacts → hold → Export" : ".vcf or .csv",
+      () => fileInput.click()),
+    row("plus", "Add someone by hand", "Name, number and what they do",
+      addByHand || (() => { before(); showContactForm(); })),
+    fileInput,
+  ].filter(Boolean);
+}
 
-  const btn = $("#importBtn");
-  btn.disabled = true;
-  btn.textContent = `Profiling ${contacts.length} contact${contacts.length > 1 ? "s" : ""}…`;
-  status.replaceChildren();
-  try {
-    const { imported } = await api("/contacts/import", {
-      method: "POST",
-      body: JSON.stringify({ user_id: uid(), contacts, enrich_with_web: $("#enrich").checked }),
-    });
-    status.replaceChildren(
-      h("p", { class: "ok-text" }, `Imported ${imported.length} contact${imported.length === 1 ? "" : "s"}.`),
-      ...imported.filter((c) => c.search_query).map((c) => h("p", { class: "hint" }, `${c.name}: searched ${c.search_query}`)),
-    );
-    $("#importRows").replaceChildren();
-    addImportRow();
-    showTab("contacts");
-    loadContacts();
-  } catch (e) {
-    status.replaceChildren(h("p", { class: "error-text" }, e.message));
-  } finally {
-    btn.disabled = false;
-    btn.textContent = "Import contacts";
+// A Google button that isn't open yet: same place and look, with a lock and "Opens soon".
+function lockedGoogleButton(label, withLogo) {
+  return h("div", { class: "locked-btn", role: "note", "aria-label": `${label}: opens once Google approves Scout` },
+    withLogo ? h("span", { class: "g", html: GOOGLE_G }) : null,
+    h("span", { class: "t" }, label),
+    h("span", { class: "chip" }, icon("lock", "xs"), "Opens soon"));
+}
+
+function showContactSources() {
+  openContactFlow(
+    h("h3", { class: "flow-title" }, "Add the people you know"),
+    h("p", { class: "hint" }, "When you shop, Scout checks whether someone you know sells, fixes or just bought the thing."),
+    ...contactSourceButtons(),
+    contacts.list.length ? h("button", { class: "link", type: "button", onclick: closeContactFlow }, "Back to your contacts") : null,
+  );
+}
+
+function showContactReview(found, source) {
+  const people = found.filter((c) => c && c.name);
+  if (!people.length) return toast("No contacts with a name came through.", true);
+  const chosen = new Set(people.map((_, i) => i));
+  const countLine = h("span");
+  const toggle = h("button", { class: "link", type: "button" });
+  const summary = h("p", { class: "hint" });
+  const go = h("button", { class: "btn block", type: "button" });
+  const sync = () => {
+    const lookups = people.filter((c, i) => chosen.has(i) && isFullName(c.name)).length;
+    countLine.textContent = `${chosen.size} selected`;
+    toggle.textContent = chosen.size ? "Select none" : "Select all";
+    summary.replaceChildren(h("b", {}, `${lookups} can be looked up`),
+      ` by name on the web${lookups > LOOKUP_CAP ? ` (the first ${LOOKUP_CAP} now, the rest when you ask)` : ""}. `
+      + `The other ${chosen.size - lookups} are saved with what you have; you can describe them any time.`);
+    go.textContent = `Add ${chosen.size} contact${chosen.size === 1 ? "" : "s"}`;
+    go.disabled = !chosen.size;
+  };
+  const rows = people.map((c, i) => {
+    const box = h("input", { type: "checkbox", checked: true });
+    box.addEventListener("change", () => { if (box.checked) chosen.add(i); else chosen.delete(i); sync(); });
+    const detail = c.email || [c.title, c.company].filter(Boolean).join(" · ") || (c.notes ? `Note: ${c.notes}` : "") || c.phone || "";
+    const [badge, look] = isFullName(c.name) ? ["Look up", true] : c.notes ? ["From your note", true] : ["Name only", false];
+    return h("label", { class: "pick", "data-name": c.name.toLowerCase() }, box, h("span", { class: "initials" }, initials(c.name)),
+      h("span", { class: "who" }, h("b", {}, c.name), detail ? h("small", {}, detail) : null),
+      h("span", { class: `badge-sm${look ? " look" : ""}` }, badge));
+  });
+  toggle.addEventListener("click", () => {
+    const all = !chosen.size;
+    rows.forEach((row, i) => { row.querySelector("input").checked = all; if (all) chosen.add(i); else chosen.delete(i); });
+    sync();
+  });
+  const search = h("input", { type: "text", placeholder: "Search names…", "aria-label": "Search names" });
+  search.addEventListener("input", () => {
+    const q = search.value.trim().toLowerCase();
+    rows.forEach((row) => { row.hidden = Boolean(q) && !row.dataset.name.includes(q); });
+  });
+  go.addEventListener("click", async () => {
+    go.disabled = true;
+    go.textContent = "Adding…";
+    try {
+      const { saved } = await api("/contacts/import", {
+        method: "POST", body: JSON.stringify({ user_id: uid(), source, contacts: people.filter((_, i) => chosen.has(i)) }),
+      });
+      closeContactFlow();
+      toast(`Added ${saved} contact${saved === 1 ? "" : "s"}.`);
+      loadContacts();
+    } catch (e) {
+      toast(e.message, true);
+      sync();
+    }
+  });
+  sync();
+  openContactFlow(
+    h("div", { class: "review-head" }, h("h3", {}, `${people.length} contact${people.length === 1 ? "" : "s"} found`),
+      h("button", { class: "icon-btn", type: "button", "aria-label": "Cancel", onclick: closeContactFlow }, icon("x", "sm"))),
+    people.length > 8 ? search : null,
+    h("div", { class: "review-count" }, countLine, toggle),
+    h("div", { class: "review-list" }, ...rows),
+    summary, go,
+  );
+}
+
+function showContactForm() {
+  const field = (label, attrs) => h("label", { class: "field" }, label, h(attrs.rows ? "textarea" : "input", attrs));
+  const form = h("form", { class: "col" },
+    field("Name", { type: "text", name: "name", required: true, autocomplete: "off" }),
+    field("Phone", { type: "text", name: "phone", autocomplete: "off" }),
+    field("Email", { type: "text", name: "email", autocomplete: "off" }),
+    field("What do they do?", { name: "notes", rows: "2", placeholder: "e.g. sells phones in Yaba" }),
+    h("button", { class: "btn block", type: "submit" }, "Add contact"));
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const get = (n) => form.elements.namedItem(n).value.trim() || null;
+    if (!get("name")) return;
+    const contact = { name: get("name"), phone: get("phone"), email: get("email"), notes: get("notes") };
+    // A number (or email, or name) already saved: ask before anything changes.
+    const add = async (onConflict = null) => {
+      const out = await api(`/contacts/${uidPath()}/add`, { method: "POST", body: JSON.stringify({ contact, on_conflict: onConflict }) });
+      if (out.conflict) {
+        const back = { number: "phone", email: "email", name: "name" }[out.conflict.same];
+        return clashSheet(out.conflict, contact.name, contact.notes, add, () => form.elements.namedItem(back).focus());
+      }
+      closeContactFlow();
+      toast(`Added ${contact.name}.`);
+      loadContacts();
+    };
+    try {
+      await add();
+    } catch (err) {
+      toast(err.message, true);
+    }
+  });
+  openContactFlow(
+    h("div", { class: "review-head" }, h("h3", {}, "Add someone"),
+      h("button", { class: "icon-btn", type: "button", "aria-label": "Cancel", onclick: closeContactFlow }, icon("x", "sm"))),
+    form);
+  form.querySelector("input").focus();
+}
+
+$("#addContactsBtn").addEventListener("click", showContactSources);
+
+// Back from Google's consent screen with the user's Google Contacts.
+async function handleContactsReturn(result) {
+  openPanel("contacts");
+  if (result === "google") {
+    try {
+      const { contacts: found } = await api(`/contacts/${uidPath()}/pending`);
+      if (found.length) showContactReview(found, "google");
+      else toast("No contacts came back from Google.", true);
+    } catch (e) {
+      toast(e.message, true);
+    }
+  } else if (result === "error") {
+    toast("Couldn't read your Google Contacts. Try again.", true);
   }
-});
+}
 
 // ---------- profile ----------
 
@@ -1403,7 +2502,7 @@ async function loadProfile() {
     const { facts } = await api(`/users/${uidPath()}/profile`);
     const entries = Object.entries(facts || {});
     box.replaceChildren(entries.length
-      ? h("dl", {}, entries.map(([k, v]) => [h("dt", {}, k), h("dd", {}, String(v))]))
+      ? h("dl", {}, entries.flatMap(([k, v]) => [h("dt", {}, k), h("dd", {}, String(v))]))
       : h("p", { class: "hint" }, "Nothing stored yet. Tell the agent your name, city or budget in chat."));
   } catch (e) {
     box.replaceChildren(h("p", { class: "error-text" }, e.message));
@@ -1413,60 +2512,410 @@ $("#refreshProfile").addEventListener("click", loadProfile);
 
 // ---------- tabs and user ----------
 
-const narrow = () => matchMedia("(max-width: 860px)").matches;
+// Below 1100px the navy bar and the side panel are tucked away. The menu icon slides the
+// bar out; picking a page slides its panel in from the right. Wide screens show both.
+const compact = matchMedia("(max-width: 1100px)");
+const canHover = matchMedia("(hover: hover)");
+const bodyClass = document.body.classList;
+let currentTab = "cart";
 
+function syncNav() {
+  const panelShown = !compact.matches || bodyClass.contains("panel-open");
+  document.querySelectorAll(".rail [data-tab]").forEach((b) => b.classList.toggle("active", panelShown && b.dataset.tab === currentTab));
+  $("#menuBtn").setAttribute("aria-expanded", String(bodyClass.contains("nav-open")));
+}
+
+// Switch the panel's page without opening anything.
 function showTab(name) {
-  document.querySelectorAll(".rail [data-tab]").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
+  currentTab = name;
   document.querySelectorAll(".panel").forEach((p) => { p.hidden = p.id !== `tab-${name}`; });
   local.set("tab", name);
+  syncNav();
 }
+function setNav(open) {
+  bodyClass.toggle("nav-open", open);
+  syncNav();
+}
+function openPanel(name) {
+  bodyClass.remove("nav-open");
+  bodyClass.add("panel-open");
+  showTab(name);
+}
+function closeAll() {
+  bodyClass.remove("nav-open", "panel-open");
+  syncNav();
+}
+
 document.querySelectorAll(".rail [data-tab]").forEach((b) => b.addEventListener("click", () => {
-  showTab(b.dataset.tab);
-  if (narrow()) $("#side").scrollIntoView({ behavior: "smooth" });
+  if (compact.matches) openPanel(b.dataset.tab);
+  else showTab(b.dataset.tab);
 }));
-// On wide screens the chat is always visible, so this just focuses the composer.
-$("[data-nav=chat]").addEventListener("click", () => {
-  if (narrow()) window.scrollTo({ top: 0, behavior: "smooth" });
-  msgInput.focus();
+$("#menuBtn").addEventListener("click", () => setNav(!bodyClass.contains("nav-open")));
+// With a mouse, hovering the icon opens the bar and leaving the bar closes it.
+$("#menuBtn").addEventListener("mouseenter", () => { if (canHover.matches) setNav(true); });
+$("#rail").addEventListener("mouseleave", () => { if (canHover.matches && compact.matches) setNav(false); });
+$("#scrim").addEventListener("click", closeAll);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeAll(); });
+compact.addEventListener("change", closeAll);
+document.querySelectorAll(".panel-head").forEach((head) => head.append(
+  h("button", { class: "icon-btn close-panel", type: "button", "aria-label": "Close", onclick: closeAll }, icon("x", "sm"))));
+
+// ---------- account ----------
+
+function syncAccount() {
+  const avatar = $("#meBtn .avatar");
+  avatar.classList.toggle("guest", isGuest());
+  avatar.replaceChildren(isGuest() ? icon("user", "sm") : initials(me?.name));
+  $("#meBtn .tip").textContent = isGuest() ? "Sign up" : "Profile";
+  document.querySelectorAll(".panel.members").forEach((panel) => panel.classList.toggle("guest", isGuest()));
+  $("#guestBanner").hidden = !isGuest() || sessionStorage.getItem("hideGuestBanner") === "1";
+  $("#accName").value = me?.name || "";
+  $("#accArea").value = area();
+  $("#accEmail").textContent = me ? `Signed in as ${me.email}` : "";
+  syncAccountSave();
+}
+
+// Save is greyed out until the name or area differs from what's saved (and the name isn't empty).
+function syncAccountSave() {
+  const name = $("#accName").value.trim();
+  const changed = name !== (me?.name || "") || $("#accArea").value.trim() !== area();
+  $("#accountForm button[type=submit]").disabled = !changed || !name;
+}
+$("#accName").addEventListener("input", syncAccountSave);
+$("#accArea").addEventListener("input", syncAccountSave);
+
+$("#accountForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  try {
+    me = await api("/auth/me", {
+      method: "PATCH", body: JSON.stringify({ name: $("#accName").value.trim(), location: $("#accArea").value.trim() }),
+    });
+    syncAccount();
+    syncLoc();
+    loadProfile();
+    toast("Saved.");
+  } catch (err) {
+    toast(err.message, true);
+  }
 });
 
-const syncMe = () => { $("#meBtn").firstChild.textContent = initials(uid()); };
+$("#bannerSignUp").addEventListener("click", () => showAuth("signup"));
+$("#bannerSignIn").addEventListener("click", () => showAuth("signin"));
+$("#bannerClose").addEventListener("click", () => {
+  $("#guestBanner").hidden = true;
+  try { sessionStorage.setItem("hideGuestBanner", "1"); } catch {}
+});
 
-$("#userId").addEventListener("change", () => {
-  local.set("userId", uid());
-  syncMe();
-  showEmpty();
-  loadCart();
-  loadPurchases();
-  loadGmail();
-  loadPush();
-  loadContacts();
-  loadProfile();
+// Pages that need an account show a short sign-up note to guests instead.
+const GATES = {
+  profile: ["user", "Make Scout yours", "Sign up to keep your chats, cart and purchases, and to let Scout watch your Gmail for receipts. What you've done as a guest comes with you."],
+  purchases: ["receipt", "Sign up to track your purchases", "After you pay, Scout watches your Gmail for the store's receipt and follows up if it doesn't arrive. That needs an account."],
+  contacts: ["users", "Sign up to add your contacts", "Scout matches what you need with people you know who sell or fix it. Your contacts are kept with your account."],
+};
+for (const [tab, [ico, title, text]] of Object.entries(GATES)) {
+  const panel = $(`#tab-${tab}`);
+  panel.classList.add("members");
+  panel.querySelector(".panel-head").after(h("div", { class: "gate" },
+    h("div", { class: "ico" }, icon(ico)), h("strong", {}, title), h("p", {}, text),
+    h("div", { class: "row" },
+      h("button", { class: "btn small", type: "button", onclick: () => showAuth("signup") }, "Create an account"),
+      tab === "profile" ? h("button", { class: "btn ghost small", type: "button", onclick: () => showAuth("signin") }, "Sign in") : null)));
+}
+
+$("#signOutBtn").addEventListener("click", async () => {
+  try { await api("/auth/signout", { method: "POST" }); } catch {}
+  // leave nothing behind for the next person on this device; the area stays on the account
+  try { localStorage.clear(); sessionStorage.clear(); } catch {}
+  location.reload();
+});
+
+// ---------- sign in and create account ----------
+
+const GOOGLE_G = '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>';
+// Creating an account is two steps: who you are (the account is made here), then where
+// you shop, which the browser can fill in if you allow location access.
+
+function showAuth(view, note = "") {
+  const card = $("#authCard");
+  const field = (label, attrs) => h("label", { class: "field" }, label, h("input", attrs));
+  const error = h("p", { class: "error-text", role: "alert" }, note);
+  const brand = h("div", { class: "auth-brand" }, h("div", { class: "logo" }, icon("logo")), "Scout");
+  const busy = (btn, on, text) => { btn.disabled = on; if (text) btn.textContent = text; };
+  const google = () => (googleReady ? [h("div", { class: "or-line" }, "or"),
+    h("a", { class: "btn ghost block google", href: "/auth/google", html: GOOGLE_G + "Continue with Google" })] : []);
+  const val = (name) => card.elements.namedItem(name).value;  // card.name is the form's own name
+  const done = () => startApp();  // load the account, with what the guest did moved in
+  const close = h("button", { class: "icon-btn close-auth", type: "button", "aria-label": "Close",
+    onclick: ["where", "people", "people-add"].includes(view) ? done : closeAuth }, icon("x", "sm"));
+  $("#authScreen").hidden = false;
+
+  if (view === "signin") {
+    const go = h("button", { class: "btn block", type: "submit" }, "Sign in");
+    card.replaceChildren(brand, h("h2", {}, "Welcome back"),
+      field("Email", { type: "email", name: "email", autocomplete: "email", required: true }),
+      field("Password", { type: "password", name: "password", autocomplete: "current-password", required: true }),
+      error, go, ...google(),
+      h("div", { class: "auth-switch" }, "New to Scout? ", h("button", { class: "link", type: "button", onclick: () => showAuth("signup") }, "Create an account")));
+    card.onsubmit = async (e) => {
+      e.preventDefault();
+      busy(go, true, "Signing in…");
+      try {
+        me = await api("/auth/signin", { method: "POST", body: JSON.stringify({ email: val("email"), password: val("password") }) });
+        done();
+      } catch (err) {
+        error.textContent = err.message;
+        busy(go, false, "Sign in");
+      }
+    };
+  } else if (view === "signup") {
+    const go = h("button", { class: "btn block", type: "submit" }, "Continue");
+    card.replaceChildren(h("div", { class: "steps" }, h("i", { class: "on" }), h("i"), h("i")),
+      h("h2", {}, "Create your account"),
+      field("Your name", { type: "text", name: "name", autocomplete: "name", required: true }),
+      field("Email", { type: "email", name: "email", autocomplete: "email", required: true }),
+      field("Password", { type: "password", name: "password", autocomplete: "new-password", placeholder: "At least 8 characters", required: true }),
+      error, go, ...google(),
+      h("div", { class: "auth-switch" }, "Have an account? ", h("button", { class: "link", type: "button", onclick: () => showAuth("signin") }, "Sign in")));
+    card.onsubmit = async (e) => {
+      e.preventDefault();
+      busy(go, true, "Creating your account…");
+      try {
+        me = await api("/auth/signup", { method: "POST", body: JSON.stringify({
+          name: val("name"), email: val("email"), password: val("password") }) });
+        showAuth("where");
+      } catch (err) {
+        error.textContent = err.message;
+        busy(go, false, "Continue");
+      }
+    };
+  } else if (view === "where") {
+    let found = null;
+    const status = h("div");
+    const typed = h("input", { type: "text", name: "area", placeholder: "e.g. Lekki, Lagos", autocomplete: "address-level2",
+      "aria-label": "Your area", value: visit.get("guestArea", "") });  // what they set as a guest
+    const find = h("button", { class: "btn ghost block", type: "button" }, icon("pin", "sm"), "Use my location");
+    const go = h("button", { class: "btn block", type: "submit" }, "Start shopping");
+    const blocked = () => status.replaceChildren(h("div", { class: "blocked" }, icon("info"),
+      h("div", {}, h("b", {}, "Location access is blocked"), h("span", {}, "Click the 🔒 in the address bar to allow it, or type your area below."))));
+    find.addEventListener("click", async () => {
+      busy(find, true);
+      find.lastChild.textContent = "Finding you…";
+      try {
+        found = await deviceArea();
+        status.replaceChildren(h("div", { class: "found" }, icon("pin"), h("div", {}, found, h("small", {}, "Found from your device"))));
+        find.hidden = true;
+      } catch (err) {
+        if (err.code === 1) { geoPermission = "denied"; blocked(); }
+        else status.replaceChildren(h("p", { class: "error-text" }, err.message || "Couldn't find your location. Type your area instead."));
+        find.lastChild.textContent = "Try again";
+        busy(find, false);
+      }
+    });
+    card.replaceChildren(h("div", { class: "steps" }, h("i", { class: "on" }), h("i", { class: "on" }), h("i")),
+      h("h2", {}, "Where do you shop?"),
+      h("p", { class: "lead" }, "Scout looks for stores and deals near you. Only the area is used, never your exact address."),
+      find, status, h("div", { class: "or-line" }, "or type it"), typed, error, go,
+      h("div", { class: "auth-switch" }, h("button", { class: "link", type: "button", onclick: () => showAuth("people") }, "Skip for now")));
+    if (geoPermission === "denied") blocked();
+    card.onsubmit = async (e) => {
+      e.preventDefault();
+      const place = typed.value.trim() || found;
+      if (!place) { error.textContent = "Use your location or type your area, or skip for now."; return; }
+      busy(go, true);
+      try { await saveArea(place); showAuth("people"); }
+      catch (err) { error.textContent = err.message; busy(go, false); }
+    };
+  } else if (view === "people") {
+    // Optional: bring in contacts. Picking or uploading carries on in the Contacts panel.
+    const intoApp = () => { done(); openPanel("contacts"); };
+    card.replaceChildren(h("div", { class: "steps" }, h("i", { class: "on" }), h("i", { class: "on" }), h("i", { class: "on" })),
+      h("h2", {}, "People you know can help"),
+      h("p", { class: "lead" }, "Scout checks your contacts when you shop, so it can say “Morris sells fridges in Ikeja”. Only the people you choose are added."),
+      ...contactSourceButtons(intoApp, () => showAuth("people-add")),
+      h("div", { class: "auth-switch" }, h("button", { class: "link", type: "button", onclick: done }, "Skip for now")));
+    card.onsubmit = (e) => e.preventDefault();
+  } else if (view === "people-add") {
+    // Adding people by hand stays inside sign-up: add one, then another, then start shopping.
+    const showForm = !signupAdded.length || addingAnother;
+    const added = signupAdded.length ? h("div", { class: "added" }, ...signupAdded.map((c) => h("div", { class: "who" },
+      h("span", { class: "initials" }, initials(c.name)),
+      h("span", {}, h("b", {}, c.name), c.notes ? h("small", {}, c.notes) : null),
+      icon("check", "sm")))) : null;
+    const head = [h("div", { class: "steps" }, h("i", { class: "on" }), h("i", { class: "on" }), h("i", { class: "on" })),
+      h("h2", {}, "Who do you know?")];
+    if (!showForm) {
+      card.replaceChildren(...head, added,
+        h("div", { class: "pair" },
+          h("button", { class: "btn ghost", type: "button", onclick: () => { addingAnother = true; showAuth("people-add"); } }, "+ Add another"),
+          h("button", { class: "btn", type: "button", onclick: done }, "Start shopping")),
+        h("div", { class: "auth-switch" }, h("button", { class: "link", type: "button", onclick: () => showAuth("people") }, "Import more another way")));
+      card.onsubmit = (e) => e.preventDefault();
+    } else {
+      const notes = h("textarea", { name: "notes", rows: "2", placeholder: "e.g. sells phones in Yaba" });
+      const go = h("button", { class: "btn block", type: "submit" }, "Add");
+      const nameBox = () => card.elements.namedItem("name");
+      const syncGo = () => {
+        const first = nameBox().value.trim().split(/\s+/)[0];
+        go.textContent = first ? `Add ${first}` : "Add";
+        go.disabled = !first;
+      };
+      const chips = h("div", { class: "chips" }, ...["Sells appliances", "Fixes phones", "Mechanic", "Tailor", "Electrician"].map((label) => {
+        const chip = h("button", { class: "chip", type: "button" }, label);
+        chip.addEventListener("click", () => {
+          notes.value = label;
+          chips.querySelectorAll(".chip").forEach((c) => c.classList.toggle("on", c === chip));
+          notes.focus();
+        });
+        return chip;
+      }));
+      card.replaceChildren(...head,
+        signupAdded.length ? added : h("p", { class: "lead" }, "Someone who sells, fixes or knows about things you might buy."),
+        field("Name", { type: "text", name: "name", autocomplete: "off", required: true, oninput: syncGo }),
+        h("div", { class: "pair" },
+          field("Phone", { type: "tel", name: "phone", autocomplete: "off" }),
+          field("Email (optional)", { type: "email", name: "email", autocomplete: "off" })),
+        h("label", { class: "field" }, "What do they do?", notes), chips,
+        error, go,
+        h("div", { class: "auth-switch" }, h("button", { class: "link", type: "button",
+          onclick: () => { addingAnother = false; showAuth(signupAdded.length ? "people-add" : "people"); } }, "Back")));
+      syncGo();
+      card.onsubmit = async (e) => {
+        e.preventDefault();
+        const contact = { name: val("name").trim(), phone: val("phone").trim() || null, email: val("email").trim() || null,
+          notes: notes.value.trim() || null };
+        if (!contact.name) return;
+        busy(go, true, "Adding…");
+        try {
+          await api("/contacts/import", { method: "POST", body: JSON.stringify({ user_id: uid(), source: "manual", contacts: [contact] }) });
+          signupAdded.push(contact);
+          addingAnother = false;
+          showAuth("people-add");
+        } catch (err) {
+          error.textContent = err.message;
+          busy(go, false);
+          syncGo();
+        }
+      };
+    }
+  }
+  card.prepend(close);
+  card.querySelector("input")?.focus();
+}
+
+let signupAdded = [];  // people added by hand during sign-up
+let addingAnother = false;  // show the form again under the people already added
+
+function closeAuth() {
+  $("#authScreen").hidden = true;
+}
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !$("#authScreen").hidden) $("#authCard .close-auth")?.click();
 });
 
 // ---------- init ----------
 
-$("#userId").value = local.get("userId", "demo-user");
-$("#location").value = local.get("location", "");
-if (local.get("shareLoc", "")) { $("#shareLoc").checked = true; $("#location").disabled = false; }
-syncLocChip();
-syncMe();
+let started = false;
+function startApp() {
+  $("#authScreen").hidden = true;
+  if (isGuest()) me.location = visit.get("guestArea", "") || null;
+  syncAccount();
+  syncLoc();
+  loadChat();
+  loadChatList();
+  loadCart();
+  loadProfile();
+  if (!isGuest()) {
+    loadPurchases();
+    loadGmail();
+    loadPush();
+    loadContacts();
+  }
+  if (!started) { started = true; handleGmailReturn(); }
+}
+
+// ---------- past chats ----------
+// Accounts keep their chats. The menu drawer lists the recent ones; on a wide screen they're
+// on the Chats page. Opening one makes it the current chat again, to carry on.
+
+const whenText = (iso) => {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const days = Math.floor((new Date().setHours(0, 0, 0, 0) - new Date(d).setHours(0, 0, 0, 0)) / 86400000);
+  return days <= 0 ? "Today" : days === 1 ? "Yesterday"
+    : days < 7 ? d.toLocaleDateString(undefined, { weekday: "short" }) : d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+};
+
+async function loadChatList() {
+  const show = !isGuest();
+  $(".rail .chats-tab").hidden = !show;
+  $("#recentChats").hidden = !show;
+  if (!show) return;
+  let chats = [];
+  try { ({ chats } = await api(`/chat/${uidPath()}/list`)); } catch { return; }
+  const open = (c) => async () => {
+    if (c.current) { closeAll(); return; }
+    try {
+      const { turns } = await api(`/chat/${uidPath()}/open/${encodeURIComponent(c.chat_id)}`, { method: "POST" });
+      showTurns(turns);
+      closeAll();
+      loadChatList();
+    } catch (e) {
+      toast(e.message, true);
+    }
+  };
+  $("#recentChats").replaceChildren(...(chats.length ? [h("div", { class: "label" }, "RECENT CHATS"),
+    ...chats.map((c) => h("button", { type: "button", class: c.current ? "on" : null, onclick: open(c) },
+      h("span", {}, c.title), h("small", {}, whenText(c.updated_at))))] : []));
+  $("#chatList").replaceChildren(...(chats.length
+    ? chats.map((c) => h("button", { type: "button", class: `chat-item${c.current ? " on" : ""}`, onclick: open(c) },
+      h("span", {}, c.title), h("small", {}, `${whenText(c.updated_at)}${c.current ? " · open now" : ""}`)))
+    : [h("p", { class: "hint" }, "Your chats show up here.")]));
+}
+
+// The current chat, shown again after a reload.
+async function loadChat() {
+  let turns = [];
+  try { ({ turns } = await api(`/chat/${uidPath()}/current`)); } catch {}
+  showTurns(turns);
+}
+
+function showTurns(turns) {
+  if (!turns.length) return showEmpty();
+  thread.replaceChildren();
+  messages.replaceChildren(thread);
+  for (const t of turns) {
+    const photo = typeof t.photo === "string" && t.photo.startsWith("data:image/") ? h("img", { src: t.photo, alt: "Attached photo" })
+      : t.photo ? h("div", { class: "photo-note" }, icon("camera", "xs"), "Photo") : null;  // chats saved before photos were kept
+    thread.append(h("div", { class: "msg user" }, photo, t.message));
+    thread.append(renderReply(t.reply || {}, null));
+  }
+  syncSelected();
+  messages.scrollTop = messages.scrollHeight;
+}
+
+if (["import"].includes(local.get("tab", ""))) local.set("tab", "contacts");  // the Import page is now part of Contacts
 showTab(local.get("tab", "cart"));
-addImportRow();
-showEmpty();
 loadHealth();
-loadCart();
-loadPurchases();
-loadGmail();
-loadPush();
-loadContacts();
-loadProfile();
+// Back from "Continue with Google": a new account goes on to "where do you shop?"
+const signInResult = new URLSearchParams(location.search).get("signin");
+const contactsResult = new URLSearchParams(location.search).get("contacts");  // back from Google Contacts
+if (signInResult || contactsResult) history.replaceState(null, "", "/");
+api("/auth/me")
+  .then((account) => {
+    me = account;
+    startApp();
+    if (signInResult === "new") showAuth("where");
+    else if (signInResult === "error") showAuth("signin", "Couldn't sign in with Google. Try again.");
+    if (contactsResult && !isGuest()) handleContactsReturn(contactsResult);
+  })
+  .catch((e) => { showEmpty(); toast(e.message, true); });
 
 // Back from Google's consent screen
-const gmailResult = new URLSearchParams(location.search).get("gmail");
-if (gmailResult) {
+function handleGmailReturn() {
+  const gmailResult = new URLSearchParams(location.search).get("gmail");
+  if (!gmailResult) return;
   history.replaceState(null, "", "/");
-  showTab("purchases");
+  openPanel("purchases");
   if (gmailResult === "connected") toast("Gmail connected. I'll check it for receipts after you pay.");
   else if (gmailResult === "cancelled") toast("Gmail wasn't connected.");
   else toast("Couldn't connect Gmail. Check the uvicorn terminal for details.", true);

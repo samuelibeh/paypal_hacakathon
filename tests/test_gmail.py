@@ -106,3 +106,23 @@ def test_tokens_are_refreshed_and_revoked_access_disconnects():
 
     with pytest.raises(GmailNotConnected):
         client.send("nobody", "a@b.c", "s", "b")
+
+
+def test_google_sign_in_asks_only_for_name_and_email():
+    def handler(request):
+        if str(request.url) == gmail_module.TOKEN_URL:
+            return httpx.Response(200, json={"access_token": "tok"})
+        assert str(request.url) == gmail_module.USERINFO_URL
+        return httpx.Response(200, json={"email": "Sam@Gmail.com", "email_verified": True, "name": "Sam B"})
+
+    google = Gmail(fake_store(), "cid", "secret", "http://localhost/cb", http=httpx.Client(transport=httpx.MockTransport(handler)))
+    url = google.sign_in_url()
+    query = parse_qs(urlparse(url).query)
+    assert query["scope"] == ["openid email profile"]  # no mail access
+    state = query["state"][0]
+
+    assert google.is_sign_in(state)
+    assert not google.is_sign_in(Gmail(fake_store(), "cid", "secret", "http://localhost/cb")._sign("u1"))
+    assert google.sign_in("code", state) == {"email": "sam@gmail.com", "name": "Sam B"}
+    with pytest.raises(GmailError):
+        google.sign_in("code", google._sign("u1"))  # a Gmail-connect state can't sign anyone in

@@ -4,9 +4,13 @@ A listener is set per request with `listen`. Code anywhere below it (the main ag
 sub-agents) reports progress with `emit` and `step` without passing callbacks around. Steps
 nest: a step started while another is running (the deal agent's web searches inside
 find_deals) carries that step's id as its parent.
+
+A request can also be made `stoppable`: when the user presses Stop, the agents call
+`check_stopped` before each next model call or tool, and it raises Stopped.
 """
 
 import itertools
+import threading
 from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Callable
@@ -15,7 +19,27 @@ Listener = Callable[[dict], None]
 
 _listener: ContextVar[Listener | None] = ContextVar("listener", default=None)
 _parent: ContextVar[int | None] = ContextVar("parent", default=None)
+_stop: ContextVar[threading.Event | None] = ContextVar("stop", default=None)
 _ids = itertools.count(1)
+
+
+class Stopped(Exception):
+    """The user pressed Stop. Nothing from this turn is kept."""
+
+
+@contextmanager
+def stoppable(stop: threading.Event):
+    token = _stop.set(stop)
+    try:
+        yield
+    finally:
+        _stop.reset(token)
+
+
+def check_stopped() -> None:
+    stop = _stop.get()
+    if stop is not None and stop.is_set():
+        raise Stopped()
 
 
 @contextmanager

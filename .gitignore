@@ -12,3 +12,6 @@ venv/
 dist/
 build/
 *.egg-info/
+
+# per-server store list (has real email addresses); the server keeps its own
+merchants.json

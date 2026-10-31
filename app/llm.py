@@ -32,18 +32,21 @@ class LLM:
         self,
         system: str,
         messages: list,
-        tools: dict[str, tuple[dict, ToolHandler]],
+        tools: dict[str, tuple],
         max_turns: int = config.MAX_AGENT_TURNS,
         max_tokens: int = 1024,
     ) -> tuple[str, list]:
         """Run a Converse tool-use loop until the model stops calling tools.
 
-        tools maps name -> (toolSpec, handler). Returns (final_text, trace) where
-        trace lists each tool call with its input and output.
+        tools maps name -> (toolSpec, handler) or (toolSpec, handler, view). view, if given,
+        turns the handler's output into what the model is shown, e.g. a compact list; the
+        trace (and so the app) keeps the full output. Returns (final_text, trace).
         """
-        tool_config = {"tools": [{"toolSpec": spec} for spec, _ in tools.values()]}
+        tool_config = {"tools": [{"toolSpec": entry[0]} for entry in tools.values()]}
         trace = []
+        start = len(messages)  # what came before is earlier turns
         for _ in range(max_turns):
+            events.check_stopped()  # the user pressed Stop: start nothing new
             resp = self.client.converse(
                 modelId=self.model_id,
                 system=[{"text": system}],
@@ -54,7 +57,9 @@ class LLM:
             message = resp["output"]["message"]
             messages.append(message)
             if resp["stopReason"] != "tool_use":
-                return _text_of(message), trace
+                # The model sometimes says its piece next to a tool call and then ends with nothing
+                # new; the reply is then the last thing it did say, not an empty message.
+                return _text_of(message) or _last_text(messages[start:]), trace
 
             results = []
             for block in message["content"]:
@@ -62,15 +67,18 @@ class LLM:
                     events.emit("note", text=block["text"].strip())
                 if "toolUse" not in block:
                     continue
+                events.check_stopped()
                 call = block["toolUse"]
                 with events.step(call["name"], call["input"]) as outcome:
                     output, status = self._call(tools, call["name"], call["input"])
                     outcome.update(status=status, output=output)
                 trace.append({"tool": call["name"], "input": call["input"], "output": output})
+                view = tools.get(call["name"], (None, None, None))[2:3]
+                shown = view[0](output) if view and view[0] and status == "success" else output
                 results.append({
                     "toolResult": {
                         "toolUseId": call["toolUseId"],
-                        "content": [{"json": {"result": output}}],
+                        "content": [{"json": {"result": shown}}],
                         "status": status,
                     }
                 })
@@ -85,9 +93,16 @@ class LLM:
             output = tools[name][1](args)
             json.dumps(output)  # Converse requires JSON-serialisable results
             return output, "success"
+        except events.Stopped:  # a sub-agent inside this tool saw Stop: not a tool error
+            raise
         except Exception as e:  # surface tool failures to the model, don't crash the loop
             logger.warning("tool %s failed: %s: %s", name, type(e).__name__, e)
             return f"{type(e).__name__}: {e}", "error"
+
+
+def _last_text(messages: list) -> str:
+    said = [_text_of(m) for m in messages if m.get("role") == "assistant"]
+    return next((t for t in reversed(said) if t), "")
 
 
 def _text_of(message: dict) -> str:

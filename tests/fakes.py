@@ -5,7 +5,9 @@ import hashlib
 
 import mongomock
 import numpy as np
+from fastapi.testclient import TestClient
 
+from app import auth
 from app.store import Store
 
 
@@ -47,3 +49,10 @@ class FakeEmbedder:
 
 def fake_store():
     return Store(client=mongomock.MongoClient())
+
+
+def signed_in(app, user_id: str) -> TestClient:
+    """A test client with a valid sign-in cookie for user_id."""
+    client = TestClient(app)
+    client.cookies.set(auth.COOKIE, auth.session_token(user_id))
+    return client

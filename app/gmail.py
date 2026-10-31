@@ -3,6 +3,10 @@ store from the user's own account when no receipt arrives.
 
 Users connect with Google OAuth, granting read access to their mail and permission to send.
 Their refresh token is kept in storage; access tokens are cached in memory.
+
+The same Google client also signs people in to Scout ("Continue with Google"). That asks
+only for their name and verified email, and uses the same redirect URI, so the callback
+tells the two apart by the signed state.
 """
 
 import base64
@@ -23,6 +27,12 @@ TOKEN_URL = "https://oauth2.googleapis.com/token"
 API_URL = "https://gmail.googleapis.com/gmail/v1/users/me"
 SCOPES = "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send"
 STATE_MAX_AGE = 600
+SIGN_IN_SCOPES = "openid email profile"
+USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo"
+SIGN_IN = "@sign-in"  # stands in for the user id in the state of a sign-in (not a Gmail connect)
+CONTACTS_SCOPE = "https://www.googleapis.com/auth/contacts.readonly"
+PEOPLE_URL = "https://people.googleapis.com/v1/people/me/connections"
+CONTACTS = "@contacts:"  # prefixes the user id in the state of a contacts import
 
 
 class GmailError(RuntimeError):
@@ -55,10 +65,12 @@ class Gmail:
 
     # --- connecting ----------------------------------------------------------
 
-    def auth_url(self, user_id: str) -> str:
+    def auth_url(self, user_id: str, email: str | None = None) -> str:
+        """email, if given, is picked on Google's screen, so a Google account connects in one tap."""
         if not self.configured:
             raise GmailError("Gmail isn't set up: set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.")
         return AUTH_URL + "?" + urlencode({
+            **({"login_hint": email} if email else {}),
             "client_id": self.client_id,
             "redirect_uri": self.redirect_uri,
             "response_type": "code",
@@ -81,6 +93,85 @@ class Gmail:
         email = self._api(user_id, "GET", "/profile")["emailAddress"]
         self.store.save_google_account(user_id, email, tokens["refresh_token"])
         return user_id, email
+
+    # --- signing in to Scout -------------------------------------------------
+
+    def sign_in_url(self) -> str:
+        if not self.configured:
+            raise GmailError("Google sign-in isn't set up: set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.")
+        return AUTH_URL + "?" + urlencode({
+            "client_id": self.client_id,
+            "redirect_uri": self.redirect_uri,
+            "response_type": "code",
+            "scope": SIGN_IN_SCOPES,
+            "prompt": "select_account",
+            "state": self._sign(SIGN_IN),
+        })
+
+    def is_sign_in(self, state: str) -> bool:
+        try:
+            return self._verify(state) == SIGN_IN
+        except GmailError:
+            return False
+
+    def sign_in(self, code: str, state: str) -> dict:
+        """Finish a Google sign-in. Returns {"email", "name"}; the email is verified by Google."""
+        if self._verify(state) != SIGN_IN:
+            raise GmailError("That sign-in link is invalid. Start again from the app.")
+        tokens = self._send("POST", TOKEN_URL, data={
+            "code": code, "client_id": self.client_id, "client_secret": self.client_secret,
+            "redirect_uri": self.redirect_uri, "grant_type": "authorization_code",
+        })
+        info = self._send("GET", USERINFO_URL, headers={"Authorization": f"Bearer {tokens['access_token']}"})
+        if not (info.get("email") and info.get("email_verified")):
+            raise GmailError("Google didn't confirm that email address.")
+        email = info["email"].lower()
+        return {"email": email, "name": info.get("name") or email.split("@")[0]}
+
+    # --- importing Google Contacts (read-only, one time) -------------------------
+
+    def contacts_url(self, user_id: str) -> str:
+        if not self.configured:
+            raise GmailError("Google isn't set up: set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.")
+        return AUTH_URL + "?" + urlencode({
+            "client_id": self.client_id,
+            "redirect_uri": self.redirect_uri,
+            "response_type": "code",
+            "scope": CONTACTS_SCOPE,
+            "prompt": "select_account",
+            "state": self._sign(CONTACTS + user_id),
+        })
+
+    def contacts_user(self, state: str) -> str | None:
+        """The user a contacts-import state belongs to, or None if it isn't one."""
+        try:
+            value = self._verify(state)
+        except GmailError:
+            return None
+        return value[len(CONTACTS):] if value.startswith(CONTACTS) else None
+
+    def fetch_contacts(self, code: str, state: str, max_pages: int = 10) -> tuple[str, list[dict]]:
+        """Finish the consent and read the user's Google Contacts. Returns (user_id, people).
+        The access token is used once and not kept."""
+        user_id = self.contacts_user(state)
+        if not user_id:
+            raise GmailError("That contacts link is invalid. Start again from the app.")
+        tokens = self._send("POST", TOKEN_URL, data={
+            "code": code, "client_id": self.client_id, "client_secret": self.client_secret,
+            "redirect_uri": self.redirect_uri, "grant_type": "authorization_code",
+        })
+        headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+        people, page = [], None
+        for _ in range(max_pages):
+            params = {"personFields": "names,emailAddresses,phoneNumbers,organizations,biographies", "pageSize": 1000}
+            if page:
+                params["pageToken"] = page
+            data = self._send("GET", PEOPLE_URL, headers=headers, params=params)
+            people += data.get("connections", [])
+            page = data.get("nextPageToken")
+            if not page:
+                break
+        return user_id, people
 
     def connected_email(self, user_id: str) -> str | None:
         account = self.store.get_google_account(user_id)

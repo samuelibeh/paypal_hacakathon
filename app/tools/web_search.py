@@ -1,8 +1,19 @@
 """Tavily web search."""
 
+import logging
+import time
 from functools import lru_cache
 
+import requests
+
 from app import config
+
+logger = logging.getLogger(__name__)
+
+# A dropped connection or a timeout is usually a blip: try again after these pauses (seconds)
+# before giving up. Other errors (a bad key, a bad request) aren't retried.
+RETRY_PAUSES = (1, 3)
+_BLIPS = (requests.exceptions.ConnectionError, requests.exceptions.Timeout)
 
 
 class WebSearchUnavailable(RuntimeError):
@@ -19,7 +30,16 @@ def _client():
 
 
 def web_search(query: str, max_results: int = 5) -> list[dict]:
-    resp = _client().search(query=query, max_results=max_results, search_depth="basic")
+    for attempt, pause in enumerate((*RETRY_PAUSES, None), 1):
+        try:
+            resp = _client().search(query=query, max_results=max_results, search_depth="basic")
+            break
+        except _BLIPS as e:
+            if pause is None:
+                raise
+            logger.warning("Tavily search failed (%s), retrying in %ss (attempt %d of %d)",
+                           type(e).__name__, pause, attempt, len(RETRY_PAUSES) + 1)
+            time.sleep(pause)
     return [
         {"title": r.get("title"), "url": r.get("url"), "content": (r.get("content") or "")[:500]}
         for r in resp.get("results", [])

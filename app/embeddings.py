@@ -14,7 +14,10 @@ class Embedder:
     def __init__(self, model_name: str = config.EMBEDDING_MODEL):
         from sentence_transformers import SentenceTransformer
 
-        self.model = SentenceTransformer(model_name)
+        try:  # the downloaded copy, without checking Hugging Face for updates (slow on a weak connection)
+            self.model = SentenceTransformer(model_name, local_files_only=True)
+        except OSError:  # not downloaded yet
+            self.model = SentenceTransformer(model_name)
         self.model.max_seq_length = 512
 
     def embed_passage(self, text: str) -> list[float]:

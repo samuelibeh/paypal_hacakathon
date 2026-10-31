@@ -4,6 +4,9 @@ Prices always come from the deals we stored when the agent found them, never fro
 client, so the browser can't change what gets charged. The PayPal order names the store's
 own PayPal account as the payee, so paying sends the money to the store. A cart holds items
 from one store at a time, since each payment goes to one payee.
+
+A deal priced in another currency (say NGN) keeps that price for showing, and gets a
+charge_amount in PAYPAL_CURRENCY at the rate in EXCHANGE_RATES; that's what PayPal charges.
 """
 
 from decimal import Decimal, InvalidOperation
@@ -30,16 +33,27 @@ def money(value, currency: str) -> str | None:
     return str(amount.quantize(step))
 
 
-def prepare_deal(deal: dict, merchants: Merchants | None = None) -> dict:
+def charge_amount(amount: str | None, currency: str | None, rates: dict | None = None) -> str | None:
+    """What PayPal charges for this price, in PAYPAL_CURRENCY, or None if it can't be converted."""
+    if amount is None:
+        return None
+    if currency == config.PAYPAL_CURRENCY:
+        return amount
+    rate = (config.EXCHANGE_RATES if rates is None else rates).get(currency)
+    return money(Decimal(amount) * rate, config.PAYPAL_CURRENCY) if rate else None
+
+
+def prepare_deal(deal: dict, merchants: Merchants | None = None, rates: dict | None = None) -> dict:
     """Normalise the deal agent's price fields and mark whether the deal can be paid in the app."""
     merchant = (merchants or registry()).for_url(deal.get("url"))
     currency = str(deal.get("currency") or "").strip().upper() or None
     amount = money(deal.get("amount"), currency or "")
+    charge = charge_amount(amount, currency, rates)
     if amount is None:
         reason = "it has no price we can charge"
     elif not merchant:
         reason = "the app can only pay stores that are set up to take PayPal through it"
-    elif currency != config.PAYPAL_CURRENCY:
+    elif charge is None:
         reason = f"checkout takes {config.PAYPAL_CURRENCY} prices only"
     else:
         reason = None
@@ -47,6 +61,7 @@ def prepare_deal(deal: dict, merchants: Merchants | None = None) -> dict:
         **deal,
         "amount": amount,
         "currency": currency,
+        "charge_amount": charge,
         "merchant_id": merchant.id if merchant else None,
         "payable": reason is None,
         "unpayable_reason": reason,
@@ -55,7 +70,7 @@ def prepare_deal(deal: dict, merchants: Merchants | None = None) -> dict:
 
 def cart_summary(store, user_id: str) -> dict:
     items = store.get_cart(user_id)
-    total = sum((Decimal(i["amount"]) for i in items), Decimal(0))
+    total = sum((Decimal(_charge(i)) for i in items), Decimal(0))
     return {
         "items": items,
         "total": money(total, config.PAYPAL_CURRENCY) or "0.00",
@@ -89,13 +104,18 @@ def create_order(store, paypal, user_id: str, merchants: Merchants | None = None
     merchant = (merchants or registry()).get(merchant_ids.pop()) if len(merchant_ids) == 1 else None
     if not merchant:
         raise CheckoutError("Your cart has items the app can't pay for together. Remove them and add them again.")
-    items = [{"name": i.get("title") or "Item", "amount": i["amount"]} for i in cart["items"]]
+    items = [{"name": i.get("title") or "Item", "amount": _charge(i)} for i in cart["items"]]
     order = paypal.create_order(items, cart["currency"], cart["total"], payee_email=merchant.paypal_email)
     store.save_order(
         user_id, order["id"], [i["deal_id"] for i in cart["items"]], cart["total"], cart["currency"],
         merchant=merchant.to_dict(), items=[{"title": i["name"], "amount": i["amount"]} for i in items],
     )
     return {"id": order["id"], "total": cart["total"], "currency": cart["currency"], "store": merchant.name}
+
+
+def _charge(item: dict) -> str:
+    # deals saved before charge_amount existed were all priced in PAYPAL_CURRENCY
+    return item.get("charge_amount") or item["amount"]
 
 
 def capture_order(store, paypal, user_id: str, order_id: str) -> dict:

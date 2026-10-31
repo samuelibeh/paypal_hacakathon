@@ -5,7 +5,9 @@ PayPal order then names that store's PayPal account as the payee, so the money g
 store, not to us. Each entry also says which domains the store's receipts come from and
 where the payment agent should write when no receipt arrives.
 
-The list is a JSON file (MERCHANTS_FILE, see merchants.example.json).
+The list is a JSON file (MERCHANTS_FILE, see merchants.example.json). An entry whose domains
+are ["*"] takes every store no other entry names: for a sandbox demo, where one test business
+account stands in for every store.
 """
 
 import json
@@ -15,6 +17,8 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from app import config
+
+ANY = "*"
 
 
 @dataclass(frozen=True)
@@ -26,8 +30,15 @@ class Merchant:
     support_email: str
     receipt_senders: tuple[str, ...]
 
+    @property
+    def catch_all(self) -> bool:
+        return ANY in self.domains
+
     def owns(self, url: str | None) -> bool:
-        host = (urlparse(url or "").hostname or "").lower()
+        parsed = urlparse(url or "")
+        host = (parsed.hostname or "").lower()
+        if self.catch_all:
+            return parsed.scheme in ("http", "https") and bool(host)
         return any(host == d or host.endswith("." + d) for d in self.domains)
 
     def to_dict(self) -> dict:
@@ -47,7 +58,9 @@ class Merchants:
         return self._by_id.get(merchant_id)
 
     def for_url(self, url: str | None) -> Merchant | None:
-        return next((m for m in self._by_id.values() if m.owns(url)), None)
+        # Stores named by domain come before a catch-all.
+        ordered = sorted(self._by_id.values(), key=lambda m: m.catch_all)
+        return next((m for m in ordered if m.owns(url)), None)
 
 
 def _parse(entry: dict) -> Merchant:
@@ -58,7 +71,7 @@ def _parse(entry: dict) -> Merchant:
         domains=domains,
         paypal_email=entry["paypal_email"],
         support_email=entry["support_email"],
-        receipt_senders=tuple(s.lower() for s in entry.get("receipt_senders") or domains),
+        receipt_senders=tuple(s.lower() for s in entry.get("receipt_senders") or domains if s != ANY),
     )
 
 

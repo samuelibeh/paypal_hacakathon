@@ -18,9 +18,11 @@ CONTACTS = [
 
 with httpx.Client(base_url=BASE, timeout=300) as http:
     print(http.get("/health").json())
-    print("\nImporting contacts...")
-    for c in http.post("/contacts/import", json={"user_id": USER, "contacts": CONTACTS, "enrich_with_web": False}).json()["imported"]:
-        print(f"- {c['name']}: {c['profile']}")
+    account = {"name": "Sam", "email": "demo@example.com", "password": "demo-password"}
+    signed_in = http.post("/auth/signin", json=account)
+    USER = (signed_in if signed_in.is_success else http.post("/auth/signup", json=account)).json()["user_id"]
+    print("\nImporting contacts (descriptions are written in the background)...")
+    print(http.post("/contacts/import", json={"user_id": USER, "contacts": CONTACTS}).json())
 
     print("\nAsking the agent...")
     out = http.post("/chat", json={"user_id": USER, "message": "My name is Sam. Where can I buy a fridge?", "location": "Lagos, Nigeria"}).json()
