@@ -23,6 +23,7 @@ from app.agents.contact_agent import ContactAgent
 from app.agents.deal_agent import DealAgent
 from app.agents.main_agent import MainAgent
 from app.agents.payment_agent import PaymentAgent
+from app.agents.store_agent import StoreAgent
 from app.embeddings import get_embedder
 from app.gmail import Gmail, GmailError
 from app.llm import LLM
@@ -117,6 +118,11 @@ def get_main_llm() -> LLM:
 
 
 @lru_cache(maxsize=1)
+def get_store_llm() -> LLM:
+    return LLM(model_id=config.STORE_MODEL_ID)
+
+
+@lru_cache(maxsize=1)
 def get_paypal() -> PayPal:
     return PayPal()
 
@@ -136,7 +142,7 @@ def get_contact_agent() -> ContactAgent:
 
 
 def get_main_agent(contacts: ContactAgent = Depends(get_contact_agent)) -> MainAgent:
-    return MainAgent(get_main_llm(), get_store(), DealAgent(get_llm()), contacts)
+    return MainAgent(get_main_llm(), get_store(), DealAgent(get_llm(), stores=StoreAgent(get_store_llm())), contacts)
 
 
 @app.exception_handler(checkout.CheckoutError)

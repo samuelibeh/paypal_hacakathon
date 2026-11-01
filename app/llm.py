@@ -44,6 +44,7 @@ class LLM:
         """
         tool_config = {"tools": [{"toolSpec": entry[0]} for entry in tools.values()]}
         trace = []
+        _mend(messages)  # a chat saved with an empty message would fail every turn after it
         start = len(messages)  # what came before is earlier turns
         for _ in range(max_turns):
             events.check_stopped()  # the user pressed Stop: start nothing new
@@ -58,8 +59,12 @@ class LLM:
             messages.append(message)
             if resp["stopReason"] != "tool_use":
                 # The model sometimes says its piece next to a tool call and then ends with nothing
-                # new; the reply is then the last thing it did say, not an empty message.
-                return _text_of(message) or _last_text(messages[start:]), trace
+                # new; the reply is then the last thing it did say, not an empty message. The
+                # history keeps that reply too: Bedrock rejects a message with no content.
+                reply = _text_of(message) or _last_text(messages[start:-1])
+                if not _text_of(message):
+                    _mend([message], reply)
+                return reply, trace
 
             results = []
             for block in message["content"]:
@@ -69,6 +74,9 @@ class LLM:
                     continue
                 events.check_stopped()
                 call = block["toolUse"]
+                # gpt-oss sometimes leaks its channel marker into the name ("search_store<|channel|>
+                # commentary"); fixed in the history too, or Bedrock rejects the next turn.
+                call["name"] = call["name"].split("<|")[0]
                 with events.step(call["name"], call["input"]) as outcome:
                     output, status = self._call(tools, call["name"], call["input"])
                     outcome.update(status=status, output=output)
@@ -98,6 +106,15 @@ class LLM:
         except Exception as e:  # surface tool failures to the model, don't crash the loop
             logger.warning("tool %s failed: %s: %s", name, type(e).__name__, e)
             return f"{type(e).__name__}: {e}", "error"
+
+
+def _mend(messages: list, filler: str = "…") -> None:
+    """Drop blank text blocks, and give a message left with no content the filler: Bedrock
+    rejects empty content, and dropping the message would break the user/assistant turns."""
+    for m in messages:
+        m["content"] = [b for b in m.get("content") or [] if "text" not in b or b["text"].strip()]
+        if not m["content"]:
+            m["content"] = [{"text": filler or "…"}]
 
 
 def _last_text(messages: list) -> str:

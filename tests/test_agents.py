@@ -199,8 +199,20 @@ def test_a_reply_said_alongside_a_tool_call_isnt_lost():
     said_first = tool_call("remember", {"key": "city", "value": "Lagos"}, "a")
     said_first["output"]["message"]["content"].insert(0, {"text": "Here are the deals."})
     client = FakeBedrock(said_first, text_reply(""))
-    reply, _ = LLM(client, "m").run_tools("sys", [], {"remember": ({"name": "remember"}, lambda a: "ok")})
+    messages = []
+    reply, _ = LLM(client, "m").run_tools("sys", messages, {"remember": ({"name": "remember"}, lambda a: "ok")})
     assert reply == "Here are the deals."
+    assert messages[-1]["content"] == [{"text": "Here are the deals."}]  # not saved empty: Bedrock would refuse it
+
+
+def test_a_chat_saved_with_an_empty_message_still_works():
+    history = [{"role": "user", "content": [{"text": "Lagos"}]}, {"role": "assistant", "content": []},
+               {"role": "user", "content": [{"text": "a wig"}]}, {"role": "assistant", "content": [{"text": " "}]}]
+    client = FakeBedrock(text_reply("Here are some wigs."))
+    LLM(client, "m").run_tools("sys", history + [{"role": "user", "content": [{"text": "under 250k"}]}], {})
+    sent = client.requests[0]["messages"]
+    assert all(m["content"] and all(b.get("text", "x").strip() for b in m["content"]) for m in sent)
+    assert [m["role"] for m in sent] == ["user", "assistant", "user", "assistant", "user"]  # turns still alternate
 
 
 def test_the_main_agent_sees_a_compact_numbered_list_and_the_app_keeps_the_full_deals():
@@ -227,3 +239,74 @@ def test_the_deal_agent_is_told_the_date_and_starts_with_discounts():
 
     assert "Today: 30 October 2026 (look for 2026 prices)" in _request("cake", "Ikeja", None, None, None, date(2026, 10, 30))
     assert "Always start with discounts" in SYSTEM and '"discount": str or null' in SYSTEM
+
+
+def test_the_store_agent_answers_in_short_and_stops_at_two_calls():
+    from app.agents.store_agent import StoreAgent
+
+    final = ('{"found": true, "answer": "Two in budget.", "items": [{"title": "2011 Nissan Sentra",'
+             ' "price": "$2,500", "url": "https://www.cars.com/vehicledetail/1", "details": "157k mi"}]}')
+    client = FakeBedrock(tool_call("read_page", {"url": "https://www.cars.com/shopping/x"}, "a"),
+                         tool_call("search_store", {"query": "nissan sentra"}, "b"),
+                         tool_call("read_page", {"url": "https://www.cars.com/y"}, "c"), text_reply(final))
+    read, searched = [], []
+    agent = StoreAgent(LLM(client, "m"), read=lambda url: read.append(url) or "",
+                       search=lambda q, domains: searched.append((q, domains)) or [])
+
+    result = agent.check("https://www.cars.com/shopping/x", "used car, $1,500-2,500 USD")
+
+    assert read == ["https://www.cars.com/shopping/x"]  # the third call isn't run
+    assert searched == [("nissan sentra", ["cars.com"])]  # only within the store's site
+    assert result["found"] and result["items"][0]["price"] == "$2,500"
+    first_result = client.requests[1]["messages"][-1]["content"][0]["toolResult"]["content"][0]["json"]["result"]
+    assert first_result == "The page wouldn't open."
+
+
+def test_the_deal_agent_checks_at_most_three_stores_and_reports_them():
+    class Stores:
+        checked = []
+
+        def check(self, url, looking_for):
+            self.checked.append(url)
+            return {"found": False, "answer": f"nothing at {url}", "items": []}
+
+    client = FakeBedrock(tool_call("web_search", {"query": "used car"}, "s"),
+                         *[tool_call("check_store", {"url": f"https://s{n}.com", "looking_for": "car"}, f"c{n}")
+                           for n in range(4)],
+                         text_reply('{"deals": [], "summary": "s"}'))
+    agent = DealAgent(LLM(client, "m"), search=lambda q: [], stores=Stores())
+
+    result = agent.find_deals("car")
+
+    assert Stores.checked == ["https://s0.com", "https://s1.com", "https://s2.com"]
+    assert result["searches"] == ["used car"]
+    assert result["checks"][0] == {"url": "https://s0.com", "answer": "nothing at https://s0.com"}
+    assert "check_store(url, looking_for)" in client.requests[0]["system"][0]["text"]
+
+
+def test_a_channel_marker_leaked_into_a_tool_name_is_dropped():
+    client = FakeBedrock(tool_call("echo<|channel|>commentary", {"x": 1}), text_reply("done"))
+    spec = {"name": "echo", "description": "", "inputSchema": {"json": {"type": "object"}}}
+    reply, trace = LLM(client, "m").run_tools("sys", [], {"echo": (spec, lambda a: a["x"] + 1)})
+
+    assert trace == [{"tool": "echo", "input": {"x": 1}, "output": 2}]
+    assert client.requests[1]["messages"][-2]["content"][0]["toolUse"]["name"] == "echo"
+
+
+def test_an_area_told_in_the_chat_is_saved_and_searched_near():
+    client = FakeBedrock(
+        tool_call("set_area", {"area": " Newark, New Jersey "}, "a"),
+        tool_call("find_deals", {"product": "standing fan"}, "b"),
+        text_reply("Here are fans near Newark."),
+    )
+
+    class Deals:
+        def find_deals(self, product, location, budget=None, must_have=None, brief=None):
+            return {"deals": [{"store": "Shop", "price": "$15", "loc": location}]}
+
+    agent = MainAgent(LLM(client, "m"), fake_store(), Deals(), contacts=None, search=lambda q: [])
+    out = agent.chat("u1", "a standing fan; I'm in Newark, New Jersey")
+
+    assert out["tool_calls"][0]["output"] == {"area": "Newark, New Jersey"}
+    assert out["tool_calls"][1]["output"]["deals"][0]["loc"] == "Newark, New Jersey"
+    assert "set_area" in client.requests[0]["system"][0]["text"]

@@ -40,6 +40,10 @@ jobs:
           user=$(printf '%s' "$VPS_USER" | tr -d '\r\n\t "')
           printf '%s\n' "$SSH_KEY" | tr -d '\r' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+          if ! ssh-keygen -y -f ~/.ssh/deploy_key > /dev/null; then
+            echo "::error::VPS_SSH_KEY isn't a readable private key: set it from the key file itself, from -----BEGIN to END----- with its line breaks"
+            exit 1
+          fi
           # each key's type and value from the secret (an ssh-keyscan line or more), for this host
           printf '%s\n' "$KNOWN_HOSTS" | tr -d '\r"' \
             | awk -v h="$host" '{ for (i = 1; i < NF; i++) if ($i ~ /^(ssh-|ecdsa-)/) { print h, $i, $(i+1); break } }' \
@@ -56,6 +60,7 @@ jobs:
             IdentityFile ~/.ssh/deploy_key
             IdentitiesOnly yes
             StrictHostKeyChecking yes
+            BatchMode yes
           EOF
 
       - name: Copy the code to the server

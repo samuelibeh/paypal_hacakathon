@@ -20,6 +20,9 @@ BEDROCK_MODEL_ID = os.getenv(
 MAIN_MODEL_ID = os.getenv("MAIN_MODEL_ID") or BEDROCK_MODEL_ID
 # Newer models think before answering, and thinking counts toward this limit.
 MAIN_MAX_TOKENS = int(os.getenv("MAIN_MAX_TOKENS", "4096"))
+# The store checker the deal agent calls to look inside one store: it reads long pages, so a
+# small, cheap model.
+STORE_MODEL_ID = os.getenv("STORE_MODEL_ID", "openai.gpt-oss-20b-1:0")
 
 # Web search (Tavily)
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")

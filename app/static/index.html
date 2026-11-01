@@ -314,7 +314,7 @@
   .tl-thinking .tl-dot { background: var(--blue-soft); color: var(--blue); }
   .tl-label { font-weight: 600; white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   /* a step with a query keeps its name whole; the query is cut first */
-  .tl-label:has(+ .tl-query) { flex: none; }
+  .tl-label:has(+ .tl-query) { flex: 0 1 auto; }
   /* a light sweeps across the label of a step that's still running */
   .tl-step.running > details > summary > .tl-label {
     background: linear-gradient(90deg, var(--text) 0 40%, var(--sky) 50%, var(--text) 60% 100%);
@@ -330,10 +330,15 @@
     font-size: 12px; color: var(--text-2); min-width: 0; flex: 1;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  .tl-status { margin-left: auto; flex: none; font: 500 11px/14px var(--mono); color: var(--text-3); white-space: nowrap; }
+  .tl-status {
+    margin-left: auto; flex: none; max-width: 55%; font: 500 11px/14px var(--mono); color: var(--text-3);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
   .tl-step > details > summary > .tl-status::before { content: "✓ "; color: var(--ok); }
   .tl-step > details > summary > .tl-status:empty::before { content: ""; }
-  .tl-note { color: var(--text-2); font-style: italic; padding: 2px 0 2px 12px; }
+  .tl-note { color: var(--text-2); font-style: italic; padding: 2px 0 2px 12px; overflow-wrap: anywhere; }
+  /* the store agent's look inside a store gets room above and below, apart from the searches */
+  .tl-step.tl-store { margin: 6px 0; }
   .tl-body pre {
     margin: 6px 0 4px 34px; padding: 10px; max-height: 180px; overflow: auto; font: 12px/1.5 var(--mono);
     background: var(--bg); border: 1px solid var(--border); border-radius: 10px; white-space: pre-wrap;
@@ -1540,6 +1545,10 @@ const STEP_LABELS = {
   remember: (i) => `Remembering your ${i.key || "details"}`,
   find_deals: (i) => `Finding deals on ${i.product || "that"}${i.location ? ` near ${i.location}` : ""}`,
   web_search: () => "Searching the web",
+  check_store: (i) => `Looking inside ${i.url ? host(i.url) : "the store"}`,
+  read_page: () => "Reading the store's page",
+  search_store: () => "Searching the store",
+  set_area: () => "Saving your area",
   find_contacts: (i) => `Checking your contacts for ${i.need || "help"}`,
   add_to_cart: () => "Adding it to your cart",
   get_purchases: () => "Checking your purchases",
@@ -1547,16 +1556,24 @@ const STEP_LABELS = {
 };
 // Each tool gets its agent's colour, matching the design system.
 const STEP_ICONS = {
-  find_deals: ["tag", "t-deal"], web_search: ["globe", "t-neutral"], find_contacts: ["users", "t-contact"],
+  find_deals: ["tag", "t-deal"], web_search: ["globe", "t-neutral"], check_store: ["search", "t-deal"],
+  read_page: ["file", "t-neutral"], search_store: ["globe", "t-neutral"], find_contacts: ["users", "t-contact"],
+  set_area: ["pin", "t-neutral"],
   add_to_cart: ["bag", "t-pay"], get_cart: ["bag", "t-pay"], get_purchases: ["receipt", "t-pay"], get_profile: ["user", "t-neutral"], remember: ["user", "t-neutral"],
 };
 const stepIcon = (tool) => STEP_ICONS[tool] || ["sparkles", "t-neutral"];
+
+// A call over an agent's limit isn't run; the tool answers with "... limit reached".
+const refused = (output) => typeof output === "string" && /^(Call|Search|Check) limit reached/.test(output);
 
 const stepLabel = (tool, input) => (STEP_LABELS[tool] || (() => `Running ${tool}`))(input || {});
 
 function stepSummary(tool, output, status) {
   if (status === "error") return truncate(String(output), 140);
-  if (tool === "web_search" && Array.isArray(output)) return plural(output.length, "result");
+  if (tool === "read_page") return output === "The page wouldn't open." ? "Wouldn't open" : "Page read";
+  if ((tool === "web_search" || tool === "search_store") && Array.isArray(output)) return plural(output.length, "result");
+  if (tool === "check_store") return output?.items?.length ? `${plural(output.items.length, "listing")} fit` : "Nothing that fits";
+  if (tool === "set_area") return "Saved";
   if (tool === "find_deals") {
     const n = output?.deals?.length || 0;
     if (!n) return "No deals found";
@@ -1587,6 +1604,8 @@ function createTimeline() {
     el: root,
     handle(ev) {
       if (ev.type === "note") {
+        // The store agent's notes are its model thinking aloud ("We have used 1 read_page…"), not for the shopper.
+        if (steps.get(ev.parent)?.tool === "check_store") return;
         container(ev.parent).append(h("div", { class: "tl-note" }, ev.text));
       } else if (ev.type === "step") {
         running++;
@@ -1594,18 +1613,26 @@ function createTimeline() {
         const dot = h("span", { class: `tl-dot running ${tone}` }, icon(ic));
         const status = h("span", { class: "tl-status" });
         const children = h("div", { class: "timeline tl-children" });
-        const row = h("div", { class: "tl-step running" },
+        const query = ev.input?.query || ev.input?.area;
+        const row = h("div", { class: `tl-step running${ev.tool === "check_store" ? " tl-store" : ""}` },
           h("details", {},
             h("summary", { onclick: (e) => e.preventDefault() },  // nothing to open: the raw input isn't shown
               dot, h("span", { class: "tl-label" }, stepLabel(ev.tool, ev.input)),
-              ev.input?.query ? h("code", { class: "tl-query" }, ev.input.query) : null, status)),
+              query ? h("code", { class: "tl-query" }, query) : null, status)),
           children);
         container(ev.parent).append(row);
-        steps.set(ev.id, { row, dot, status, children, started: Date.now() });
+        steps.set(ev.id, { tool: ev.tool, row, dot, status, children, started: Date.now() });
       } else if (ev.type === "step_done") {
         const s = steps.get(ev.id);
         if (!s) return;
         running--;
+        if (refused(ev.output)) {  // the limit stopped it, so nothing ran: don't show or count it
+          s.row.remove();
+          steps.delete(ev.id);
+          refresh();
+          return;
+        }
+        if (ev.tool === "check_store" && ev.output?.answer) s.children.append(h("div", { class: "tl-note" }, ev.output.answer));
         s.row.classList.remove("running");
         s.dot.classList.remove("running");
         s.dot.classList.add(ev.status === "error" ? "err" : "ok");
@@ -1663,6 +1690,9 @@ async function send(text) {
       messages.scrollTop = messages.scrollHeight;
     }, replyStop.signal);
     pending.replaceWith(renderReply(out, log.finish()));
+    // An area they told Scout in the chat becomes their area, as if set with the pin.
+    const told = [...(out.tool_calls || [])].reverse().find((c) => c.tool === "set_area")?.input?.area?.trim();
+    if (told && told !== area()) saveArea(told).then(() => toast(`Showing deals near ${told}.`), (err) => toast(err.message, true));
     syncSelected();
     loadCart();  // the agent may have added something
     loadChatList();

@@ -182,9 +182,11 @@ For a product request:
    area first and say in a few words what you took it to mean.
 3. Read the budget. With no currency written, it's their area's currency ("700k-800k" in
    Ikeja is NGN 700,000 to 800,000); say how you read it in one line. If their area is unknown
-   and no currency is given, ask whether they mean naira or dollars.
+   and no currency is given, assume they mean dollars. If they tell you their area, call
+   set_area with it.
 4. Call find_deals with the product alone, their location, budget and must-haves. same_hunt is
-   false for a new item, true for "search more" on the same item.
+   false for a new item, true for "search more" on the same item.If their location isn't
+   known, don't ask for it: leave location out and find_deals searches online stores.
 5. Call find_contacts with a short description of the need.
 6. Check every deal: the right item (no missing), a price at or under the budget, and no
    price_year before this year. If fewer than two deals pass, call find_deals again straight
@@ -192,9 +194,12 @@ For a product request:
    - the item is there but over budget or the wrong spec: a broader item, same area;
    - few or no sellers: the same item, the area one level wider;
    - nothing, and it's branded or custom: the generic item, the wider area.
-   Never ask before retrying, and never call find_deals a third time. Never tell them how many
-   searches you've used or have left.
+   Never ask before retrying, and never call find_deals a third time.
 7. Reply:
+   - If neither call found a deal, say so plainly and give the reason find_deals' summary
+     gives, in your own words; never give a reason it doesn't (such as "stock changes too
+     fast"). Name the stores it says are worth checking, then ask the one thing that would
+     help most: their area, a looser budget, or a broader item.
    - If you retried, one line on what you broadened and what the original item costs from
      the first call ("The M1 Pro runs ₦1.2M-₦1.35M here, so I looked at the M1 range").
      Never claim a search you didn't make.
@@ -213,9 +218,10 @@ When they pick a deal, call add_to_cart with its deal_id. Only payable deals can
 app; for the others, give the unpayable_reason and say the card opens the store. For a deal in
 another currency, quote the store's price and its paypal_charge.
 
-Call remember for lasting facts (name, city, currency, sizes, colours, room size), never for
+Call remember for lasting facts (name, currency, sizes, colours, room size), never for
 budgets. Give your own opinion when it helps, based on the deal details. Never invent specs,
-prices, reviews or stores. Keep replies short.
+prices, reviews, stores, or why a search found nothing. Never mention searches, attempts or
+limits to them. Keep replies short.
 </task>
 
 <context>
@@ -248,6 +254,7 @@ men".
 <tools>
 - web_search(query): unfamiliar words, or one item's details.
 - get_profile(), remember(key, value): facts about the user.
+- set_area(area): save the area they told you; the app shows it and searches near it.
 - find_deals(product, location, budget, must_have, same_hunt): the deal finder. Returns deals
   numbered n with price, discount, missing (the must-have it lacks), price_year and payable;
   searches_left says how many calls remain (two per message).
@@ -415,9 +422,16 @@ class MainAgent:
                 lambda a: self.store.get_profile(user_id),
             ),
             "remember": (
-                {"name": "remember", "description": "Store a fact about the user, e.g. key='city'.",
+                {"name": "remember", "description": "Store a fact about the user, e.g. key='shoe_size'.",
                  "inputSchema": _schema({"key": str_prop, "value": str_prop}, ["key", "value"])},
                 lambda a: self.store.remember(user_id, a["key"], a["value"]),
+            ),
+            "set_area": (
+                {"name": "set_area",
+                 "description": "Save the area the user told you they're in, e.g. 'Yaba, Lagos'. The app "
+                                "shows it as their area, and find_deals searches near it from now on.",
+                 "inputSchema": _schema({"area": str_prop}, ["area"])},
+                lambda a: turn.update(location=a["area"].strip()) or {"area": a["area"].strip()},
             ),
             "find_deals": (
                 {"name": "find_deals",
@@ -438,7 +452,7 @@ class MainAgent:
                      "same_hunt": {"type": "boolean", "description": "true to continue the current hunt for the "
                                                                      "same item (search more, cheaper, broader); false for a new item"},
                  }, "required": ["product"]}}},
-                lambda a: self._find_deals(user_id, a, a.get("location") or location, turn),
+                lambda a: self._find_deals(user_id, a, a.get("location") or turn.get("location") or location, turn),
                 _deals_for_model,
             ),
             "find_contacts": (

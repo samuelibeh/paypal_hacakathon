@@ -6,19 +6,25 @@ already run, the pages already seen and the deals already found, so this round d
 instead of repeating itself. The pages this round sees are returned too, so the next brief can
 include them. It reports facts about each deal (price, discount, what it lacks, the price's
 year); judging them is the main agent's job.
+
+Search results show only a snippet of each page, so when a store's page looks promising but
+shows no prices, it can call check_store: the store agent looks inside that store and answers
+in short, with listings it can report as deals.
 """
 
 import json
 import re
 from datetime import date
 
+from app.agents.store_agent import StoreAgent
 from app.llm import LLM
 from app.tools.web_search import WEB_SEARCH_SPEC, web_search
 
-# The agent is told it has SEARCH_LIMIT searches; MAX_TURNS leaves it turns to spare to write
-# its answer. Searches past the limit aren't run.
+# The agent is told it has SEARCH_LIMIT searches and CHECK_LIMIT store checks; MAX_TURNS leaves
+# it turns to spare to write its answer. Calls past a limit aren't run.
 SEARCH_LIMIT = 8
-MAX_TURNS = 10
+CHECK_LIMIT = 3
+MAX_TURNS = 14
 # Five deals with long links and details overran the default 1024 and cut the JSON off.
 MAX_TOKENS = 4096
 
@@ -34,8 +40,8 @@ bought right now, at the best price, from a seller someone could actually buy fr
    Then search more widely with different queries: compare prices, the product with the city
    or country, local marketplaces and well-known stores. You have {SEARCH_LIMIT} searches in
    all, so make each one count, and leave yourself room to answer.
-3. If a location is given, prefer stores and marketplaces that serve that location. If not,
-   search major online stores.
+3. If a location is given, prefer stores and marketplaces that serve that location; if they
+   have little, also try online stores that deliver there. If not, search major online stores.
 4. If the request includes earlier rounds of this hunt, don't run those searches again or
    return those deals again. Go further: other stores and marketplaces, used or refurbished
    listings, other names for the product, other wordings of the budget.
@@ -44,7 +50,10 @@ bought right now, at the best price, from a seller someone could actually buy fr
 6. Prices change, so look for this year's stock and prices: the request gives today's date.
    Add the year to some of your queries ("... price Lagos 2026"). Prefer listings and prices from
    this year. Report an older price only when you find nothing current, and give its year.
-7. Never invent prices, stores or links; report only what the search results show.
+7. Never invent prices, stores or links; report only what the search results and store
+   checks show.
+8. Never ask the shopper questions; they can't reply to you. Search with what you have; for a
+   broad product ("car"), search its common kinds.
 </task>
 
 <context>
@@ -71,6 +80,9 @@ not a deal.
 <tools>
 web_search(query): searches the web and returns titles, links and text from the top results.
 At most {SEARCH_LIMIT} calls; further calls aren't run.
+check_store(url, looking_for): looks inside one store's page and says in short whether it has
+what you're looking for, with up to 3 listings (price, link) you can report as deals. Use it
+on a promising store or listing page whose results show no prices. At most {CHECK_LIMIT} calls.
 </tools>
 
 <output>
@@ -96,17 +108,33 @@ List at most 5 deals, best fit first, then cheapest credible offer.
 </output>"""
 
 
+CHECK_STORE_SPEC = {
+    "name": "check_store",
+    "description": "Look inside one store's page for what you're hunting. Returns a short answer and up to 3 listings.",
+    "inputSchema": {"json": {
+        "type": "object",
+        "properties": {
+            "url": {"type": "string", "description": "the store or listing page"},
+            "looking_for": {"type": "string", "description": "the item, its must-haves and the budget"},
+        },
+        "required": ["url", "looking_for"],
+    }},
+}
+
+
 class DealAgent:
-    def __init__(self, llm: LLM, search=web_search):
+    def __init__(self, llm: LLM, search=web_search, stores: StoreAgent | None = None):
         self.llm = llm
         self.search = search
+        self.stores = stores
 
     def find_deals(self, product: str, location: str | None = None, budget: dict | None = None,
                    must_have: list[str] | None = None, brief: str | None = None, today: date | None = None) -> dict:
         """budget: {"min", "max", "currency"} (any may be missing). brief: the earlier rounds of
         this hunt, written by the main agent's side. today: so it looks for this year's prices.
-        Returns the deals, the searches run and the pages the searches showed ({title, url})."""
-        searches, pages = 0, []
+        Returns the deals, the searches run, the pages the searches showed ({title, url}) and
+        the store checks ({url, answer})."""
+        searches, checks, pages = 0, 0, []
 
         def search(args):
             nonlocal searches
@@ -117,14 +145,25 @@ class DealAgent:
             pages.extend({"title": r.get("title", ""), "url": r.get("url", "")} for r in results or [] if r.get("url"))
             return results
 
-        tools = {"web_search": (WEB_SEARCH_SPEC, search)}
+        def check_store(args):
+            nonlocal checks
+            checks += 1
+            if not self.stores:
+                return "Store checks aren't available. Carry on searching."
+            if checks > CHECK_LIMIT:
+                return f"Check limit reached ({CHECK_LIMIT}). Carry on with what you have."
+            return self.stores.check(args["url"], args["looking_for"])
+
+        tools = {"web_search": (WEB_SEARCH_SPEC, search), "check_store": (CHECK_STORE_SPEC, check_store)}
         text, trace = self.llm.run_tools(
             SYSTEM, [{"role": "user", "content": [{"text": _request(product, location, budget, must_have, brief, today)}]}],
             tools, max_turns=MAX_TURNS, max_tokens=MAX_TOKENS,
         )
         result = _parse_json(text) or {"deals": [], "summary": text}
-        result["searches"] = [t["input"]["query"] for t in trace]
+        result["searches"] = [t["input"]["query"] for t in trace if t["tool"] == "web_search"]
         result["pages"] = pages
+        result["checks"] = [{"url": t["input"].get("url"), "answer": t["output"].get("answer")}
+                            for t in trace if t["tool"] == "check_store" and isinstance(t["output"], dict)]
         return result
 
 

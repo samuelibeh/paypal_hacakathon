@@ -1,5 +1,6 @@
 """Run the main agent and the deal agent for real and show the whole hunt: each step as it
-happens, every Tavily search with what it returned, what the deal agent is asked each call
+happens, every Tavily search with what it returned, each store the deal agent looked inside
+and what the store agent answered, what the deal agent is asked each call
 (including the brief of earlier rounds), the deals it returns with their facts (discount, what
 each lacks, the price's year), the short list the main agent judges and writes its reply from,
 whether it retried with the item or the area broadened, and the reply.
@@ -25,22 +26,41 @@ from app import config, events
 from app.agents import deal_agent
 from app.agents.deal_agent import DealAgent
 from app.agents.main_agent import MainAgent, _deals_for_model
+from app.agents.store_agent import StoreAgent
 from app.llm import LLM
 from app.store import Store
-from app.tools.web_search import web_search
+from app.tools.web_search import read_page, web_search
 
 
 def heading(text: str, line: str = "=") -> None:
     print(f"\n{line * 78}\n{text}\n{line * 78}")
 
 
-def tavily(query: str, max_results: int = 5) -> list[dict]:
-    results = web_search(query, max_results=max_results)
-    print(f"\n    TAVILY: {query!r} -> {len(results)} results")
+def tavily(query: str, max_results: int = 5, domains: list[str] | None = None) -> list[dict]:
+    results = web_search(query, max_results=max_results, domains=domains)
+    print(f"\n    TAVILY: {query!r}" + (f" on {', '.join(domains)}" if domains else "") + f" -> {len(results)} results")
     for n, r in enumerate(results, 1):
         print(f"      [{n}] {r.get('title', '')}\n          {r.get('url', '')}")
         print("          " + (r.get("content") or "")[:300].replace("\n", " ") + " …")
     return results
+
+
+def reading(url: str) -> str:
+    text = read_page(url)
+    print(f"\n      READ PAGE: {url} -> " + (f"{len(text):,} characters" if text else "wouldn't open"))
+    return text
+
+
+class ShowingStores(StoreAgent):
+    """The real store agent, printing each store the deal agent asks it to look inside."""
+
+    def check(self, url, looking_for):
+        print(f"\n    CHECK STORE: {url}\n      looking for: {looking_for}")
+        result = super().check(url, looking_for)
+        print(f"      answer: {result.get('answer')}")
+        for item in result["items"]:
+            print(f"        - {item.get('title')} | {item.get('price')} | {item.get('url')}")
+        return result
 
 
 class ShowingDeals(DealAgent):
@@ -55,7 +75,8 @@ class ShowingDeals(DealAgent):
         result = super().find_deals(product, location, budget, must_have, brief, today)
         heading(f"DEAL AGENT, CALL {ShowingDeals.round}: what it answered", "-")
         print(json.dumps({k: result.get(k) for k in ("deals", "summary")}, indent=2, ensure_ascii=False))
-        print(f"(searches: {len(result.get('searches', []))}, pages seen: {len(result.get('pages', []))})")
+        print(f"(searches: {len(result.get('searches', []))}, store checks: {len(result.get('checks', []))}, "
+              f"pages seen: {len(result.get('pages', []))})")
         return result
 
 
@@ -64,12 +85,16 @@ class NoContacts:
         return []
 
 
+# Steps the helpers above print in full already.
+QUIET = {"web_search", "check_store", "read_page", "search_store"}
+
+
 def show_event(event: dict) -> None:
     if event["type"] == "note":
         print(f"\n  Scout says: {event['text']}")
-    elif event["type"] == "step" and event["tool"] != "web_search":
+    elif event["type"] == "step" and event["tool"] not in QUIET:
         print(f"\n> {event['tool']} {json.dumps(event['input'], ensure_ascii=False)}")
-    elif event["type"] == "step_done" and event["tool"] != "web_search":
+    elif event["type"] == "step_done" and event["tool"] not in QUIET:
         print(f"< {event['tool']} done ({event.get('status')})")
 
 
@@ -83,8 +108,10 @@ def main() -> None:
 
     llm = LLM()
     store = Store(client=mongomock.MongoClient())
-    print(f"Main agent: {config.MAIN_MODEL_ID}\nDeal agent: {config.BEDROCK_MODEL_ID}")
-    agent = MainAgent(LLM(model_id=config.MAIN_MODEL_ID), store, ShowingDeals(llm, search=tavily), NoContacts(), search=tavily)
+    print(f"Main agent: {config.MAIN_MODEL_ID}\nDeal agent: {config.BEDROCK_MODEL_ID}\nStore agent: {config.STORE_MODEL_ID}")
+    stores = ShowingStores(LLM(model_id=config.STORE_MODEL_ID), read=reading, search=tavily)
+    agent = MainAgent(LLM(model_id=config.MAIN_MODEL_ID), store, ShowingDeals(llm, search=tavily, stores=stores),
+                      NoContacts(), search=tavily)
     location = None if args.no_area else args.area
     history = None
     for message in args.messages:
