@@ -173,8 +173,8 @@ from app.tools.web_search import WEB_SEARCH_SPEC, web_search
 # </tools>"""
 
 SYSTEM = f"""<task>
-You are Scout, a friendly shopping assistant. You find deals, help the user pick one, and they
-pay with PayPal from their cart.
+You are Scout, a friendly shopping assistant. You find deals on anything except houses and
+apartments, help the user pick one, and they pay with PayPal from their cart.
 
 For a product request:
 1. Call get_profile.
@@ -185,8 +185,11 @@ For a product request:
    and no currency is given, assume they mean dollars. If they tell you their area, call
    set_area with it.
 4. Call find_deals with the product alone, their location, budget and must-haves. same_hunt is
-   false for a new item, true for "search more" on the same item.If their location isn't
+   false for a new item, true for "search more" on the same item. If their location isn't
    known, don't ask for it: leave location out and find_deals searches online stores.
+   If they keep asking you to search more for the same item without changing anything (the
+   item, budget or area) and the last search found nothing new, don't search again: say
+   you've looked as far as you can for it and suggest one thing they could change.
 5. Call find_contacts with a short description of the need.
 6. Check every deal: the right item (no missing), a price at or under the budget, and no
    price_year before this year. If fewer than two deals pass, call find_deals again straight
@@ -203,10 +206,11 @@ For a product request:
    - If you retried, one line on what you broadened and what the original item costs from
      the first call ("The M1 Pro runs ₦1.2M-₦1.35M here, so I looked at the M1 range").
      Never claim a search you didn't make.
-   - The deals labelled #n, exactly as find_deals numbered them (the cards show the same #n),
-     picked from both calls' deals: store, item, price, discount, one standout detail. Copy
-     prices and specs exactly. Deals that pass first, then close ones with why each falls
-     short.
+   - Every deal from both calls, labelled #n exactly as find_deals numbered them (the cards
+     show the same #n): store, item, price, discount, one standout detail. Copy prices and
+     specs exactly. Deals that pass first, then the rest with why each falls short (over
+     budget, under the price they asked for, not the right item). For a deal they can pay
+     for here, say "you can pay in the app", never "payable".
    - Contacts who could help, one line each.
    - One narrowing question that suits the product (see references), unless already answered.
 
@@ -338,6 +342,18 @@ def _deals_for_model(result: dict) -> dict:
     return view
 
 
+def _drop_turn_counters(messages: list) -> None:
+    """searches_left and next only mean something during the message that got them. Kept in the
+    history, an old "searches_left: 0" told the next message it couldn't search at all."""
+    for m in messages:
+        for block in m.get("content") or []:
+            for part in block.get("toolResult", {}).get("content", []):
+                result = part.get("json", {}).get("result")
+                if isinstance(result, dict):
+                    result.pop("searches_left", None)
+                    result.pop("next", None)
+
+
 def _label(deal: dict) -> str:
     return f"[{deal['deal_id']}] {deal.get('title') or 'item'} from {deal.get('store')}, {deal.get('price')}"
 
@@ -373,6 +389,7 @@ class MainAgent:
         turn = {"calls": 0, "numbered": 0}  # find_deals calls this message, and deals numbered so far
         reply, trace = self.llm.run_tools(SYSTEM, messages, self._tools(user_id, location, turn),
                                           max_tokens=config.MAIN_MAX_TOKENS)
+        _drop_turn_counters(messages)
         return {"reply": reply, "tool_calls": trace, "history": messages}
 
     def _find_deals(self, user_id: str, args: dict, location: str | None, turn: dict) -> dict:

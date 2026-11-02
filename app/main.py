@@ -123,6 +123,11 @@ def get_store_llm() -> LLM:
 
 
 @lru_cache(maxsize=1)
+def get_contact_llm() -> LLM:
+    return LLM(model_id=config.CONTACT_MODEL_ID)
+
+
+@lru_cache(maxsize=1)
 def get_paypal() -> PayPal:
     return PayPal()
 
@@ -138,7 +143,7 @@ def get_payment_agent() -> PaymentAgent:
 
 
 def get_contact_agent() -> ContactAgent:
-    return ContactAgent(get_llm(), get_store(), get_embedder())
+    return ContactAgent(get_contact_llm(), get_store(), get_embedder())
 
 
 def get_main_agent(contacts: ContactAgent = Depends(get_contact_agent)) -> MainAgent:
@@ -482,6 +487,14 @@ def chat_stream(req: ChatRequest, agent: MainAgent = Depends(get_main_agent), me
             yield f"data: {json.dumps(event, default=str)}\n\n"
 
     return StreamingResponse(stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/chat/{user_id}/status")
+def reply_status(user_id: str, _: str = Depends(owner)):
+    """Whether a reply is still being worked on. A phone that puts the app in the background
+    drops the stream, but the reply carries on here and is saved; the app asks this until it's
+    done, then loads it from the current chat."""
+    return {"working": user_id in _replies}
 
 
 @app.post("/chat/{user_id}/stop")

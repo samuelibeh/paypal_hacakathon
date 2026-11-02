@@ -37,6 +37,10 @@ logger = logging.getLogger(__name__)
 LOOKUP_CAP = 200  # web lookups per import, so one big import can't use up the month's searches
 MAX_PEOPLE = 5
 MAX_ATTEMPTS = 3
+# gpt-oss reasons before answering, and the reasoning counts toward max_tokens: too low a
+# limit leaves nothing for the answer.
+DESCRIBE_TOKENS = 1024
+IDENTIFY_TOKENS = 2048
 EDITABLE = ("name", "phone", "email", "company")  # the card's fields, besides the description
 
 IDENTIFY = """<task>
@@ -94,7 +98,7 @@ web search found. The description is shown on the contact's card and used to sug
 <references>
 1-3 sentences, e.g. "Cloud engineer at TradeMindsAI who speaks on cloud costs for startups; a
 good person to ask about laptops and tech setups." No home addresses or other sensitive
-personal details.
+personal details. Don't guess their gender; use their name or "they".
 </references>
 
 <tools>
@@ -117,7 +121,7 @@ are all there is. The description is shown on the contact's card and used to sug
 
 <references>
 1-3 sentences. "sells phones in Yaba" becomes "Sells phones in Yaba, so worth asking before
-buying a phone or accessories."
+buying a phone or accessories." Don't guess their gender; use their name or "they".
 </references>
 
 <tools>
@@ -282,7 +286,7 @@ class ContactAgent:
             if contact.get("notes"):
                 facts.append(f"User's notes: {contact['notes']}")
             try:
-                description = self.llm.complete(DESCRIBE, "\n".join(facts), max_tokens=200).strip()
+                description = self.llm.complete(DESCRIBE, "\n".join(facts), max_tokens=DESCRIBE_TOKENS).strip()
             except Exception:
                 logger.exception("couldn't write the description; joining the summaries instead")
                 description = ""
@@ -323,7 +327,7 @@ class ContactAgent:
 
     def _describe_from_notes(self, user_id: str, contact_id: str, contact: dict) -> None:
         try:
-            text = self.llm.complete(NOTES, f"Name: {contact['name']}\nUser's notes: {contact['notes']}", max_tokens=200).strip()
+            text = self.llm.complete(NOTES, f"Name: {contact['name']}\nUser's notes: {contact['notes']}", max_tokens=DESCRIBE_TOKENS).strip()
         except Exception:
             logger.exception("couldn't describe %s from notes", contact_id)
             return
@@ -357,7 +361,7 @@ class ContactAgent:
                               for n, r in enumerate(results, 1)) or "(no results)"
         prompt = (f"Address book\n{book}\n\nClues about the user\n{chr(10).join(user_clues) or '(none)'}\n\n"
                   f"Search results\n{listing}")
-        return _parse_json(self.llm.complete(IDENTIFY, prompt, max_tokens=800)) or {"decision": "none"}
+        return _parse_json(self.llm.complete(IDENTIFY, prompt, max_tokens=IDENTIFY_TOKENS)) or {"decision": "none"}
 
 
 def _settled(contact: dict) -> str:

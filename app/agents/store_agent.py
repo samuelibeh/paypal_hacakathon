@@ -10,7 +10,6 @@ It has CALL_LIMIT calls in all. Network blips are retried inside a call and don'
 """
 
 import json
-import re
 from urllib.parse import urlparse
 
 from app.llm import LLM
@@ -63,10 +62,6 @@ SEARCH_STORE_SPEC = {
     }},
 }
 
-# gpt-oss writes prices with narrow and no-break spaces ("$2,500 – 2011 Nissan").
-_SPACES = str.maketrans({" ": " ", " ": " ", " ": " ", " ": " "})
-
-
 class StoreAgent:
     def __init__(self, llm: LLM, read=read_page, search=web_search):
         self.llm = llm
@@ -94,19 +89,57 @@ class StoreAgent:
         request = f"<request>\nStore page: {url}\nLooking for: {looking_for}\n</request>"
         text, _ = self.llm.run_tools(SYSTEM, [{"role": "user", "content": [{"text": request}]}],
                                      tools, max_turns=MAX_TURNS, max_tokens=MAX_TOKENS)
-        text = text.translate(_SPACES)
-        result = _parse_json(text) or {"found": False, "answer": text or "The store check gave no answer.", "items": []}
-        result["items"] = [i for i in result.get("items") or [] if isinstance(i, dict)][:ITEMS]
+        # Never the raw text: it's shown under the check, and it may be half a JSON object.
+        result = _parse_json(text) or {"found": False, "answer": "The store check didn't give a clear answer.", "items": []}
+        result["items"] = _distinct([i for i in result.get("items") or [] if isinstance(i, dict)])[:ITEMS]
         result["found"] = bool(result.get("found")) and bool(result["items"])
         return result
 
 
+def _distinct(items: list[dict]) -> list[dict]:
+    """gpt-oss sometimes lists one listing several times; the same link counts once."""
+    seen, kept = set(), []
+    for item in items:
+        key = item.get("url") or (item.get("title"), item.get("price"))
+        if key not in seen:
+            seen.add(key)
+            kept.append(item)
+    return kept
+
+
 def _parse_json(text: str) -> dict | None:
-    match = re.search(r"\{.*\}", text, re.DOTALL)
-    if not match:
+    """The answer's JSON object. gpt-oss sometimes leaves off the closing brackets
+    ('..."items": [{...}]' with no final '}'), so a text that doesn't read is tried again
+    with the brackets it left open closed."""
+    start = text.find("{")
+    if start < 0:
         return None
-    try:
-        data = json.loads(match.group(0))
-    except json.JSONDecodeError:
-        return None
-    return data if isinstance(data, dict) and "answer" in data else None
+    body = text[start:]
+    for candidate in (body, body + _closers(body)):
+        try:
+            data, _ = json.JSONDecoder().raw_decode(candidate)  # ignores anything after the object
+        except json.JSONDecodeError:
+            continue
+        if isinstance(data, dict) and "answer" in data:
+            return data
+    return None
+
+
+def _closers(text: str) -> str:
+    """What closes the strings, lists and objects a JSON text left open, innermost first."""
+    open_, in_string, escaped = [], False, False
+    for ch in text:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_string = False
+        elif ch == '"':
+            in_string = True
+        elif ch in "{[":
+            open_.append("}" if ch == "{" else "]")
+        elif ch in "}]" and open_:
+            open_.pop()
+    return ('"' if in_string else "") + "".join(reversed(open_))

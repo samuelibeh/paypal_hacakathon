@@ -102,3 +102,15 @@ def test_stop_route_flags_the_reply_in_progress():
         main._replies.pop("u1", None)
     assert signed_in(app, "u1").post("/chat/u1/stop").json() == {"stopping": False}
     assert signed_in(app, "u2").post("/chat/u1/stop").status_code == 403
+
+
+def test_status_says_whether_a_reply_is_still_coming_after_the_stream_dropped():
+    import threading
+
+    main._replies["u1"] = threading.Event()
+    try:
+        assert signed_in(app, "u1").get("/chat/u1/status").json() == {"working": True}
+    finally:
+        main._replies.pop("u1", None)
+    assert signed_in(app, "u1").get("/chat/u1/status").json() == {"working": False}
+    assert signed_in(app, "u2").get("/chat/u1/status").status_code == 403

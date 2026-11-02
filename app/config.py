@@ -23,6 +23,9 @@ MAIN_MAX_TOKENS = int(os.getenv("MAIN_MAX_TOKENS", "4096"))
 # The store checker the deal agent calls to look inside one store: it reads long pages, so a
 # small, cheap model.
 STORE_MODEL_ID = os.getenv("STORE_MODEL_ID", "openai.gpt-oss-20b-1:0")
+# The contact agent, which reads web results about each imported contact and describes them:
+# many short calls in the background, so the same small model.
+CONTACT_MODEL_ID = os.getenv("CONTACT_MODEL_ID", "openai.gpt-oss-20b-1:0")
 
 # Web search (Tavily)
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")

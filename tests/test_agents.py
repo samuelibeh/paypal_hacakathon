@@ -310,3 +310,53 @@ def test_an_area_told_in_the_chat_is_saved_and_searched_near():
     assert out["tool_calls"][0]["output"] == {"area": "Newark, New Jersey"}
     assert out["tool_calls"][1]["output"]["deals"][0]["loc"] == "Newark, New Jersey"
     assert "set_area" in client.requests[0]["system"][0]["text"]
+
+
+def test_the_next_message_doesnt_see_the_last_ones_search_count():
+    client = FakeBedrock(
+        tool_call("find_deals", {"product": "fan"}, "a"),
+        text_reply("Here's a fan."),
+        tool_call("find_deals", {"product": "fan", "same_hunt": True}, "b"),
+        text_reply("Here's another."),
+    )
+
+    class Deals:
+        def find_deals(self, product, location, budget=None, must_have=None, brief=None):
+            return {"deals": [{"store": "Shop", "price": "$5"}], "summary": "s"}
+
+    agent = MainAgent(LLM(client, "m"), fake_store(), Deals(), contacts=None, search=lambda q: [])
+    first = agent.chat("u1", "a fan")
+
+    during = client.requests[1]["messages"][-1]["content"][0]["toolResult"]["content"][0]["json"]["result"]
+    assert during["searches_left"] == 1 and "next" in during  # the retry rule, while it's deciding
+    saved = first["history"][-2]["content"][0]["toolResult"]["content"][0]["json"]["result"]
+    assert "searches_left" not in saved and "next" not in saved and saved["summary"] == "s"
+
+    second = agent.chat("u1", "search more", history=first["history"])
+    assert [t["tool"] for t in second["tool_calls"]] == ["find_deals"]
+    assert second["tool_calls"][0]["output"]["searches_left"] == 1  # a new message gets new calls
+
+
+def test_a_store_answer_missing_its_last_bracket_is_read_and_its_repeats_dropped():
+    from app.agents.store_agent import StoreAgent
+
+    listing = ('{"title": "Hermes Birkin Solid Leather Bag", "price": "₦193,000",'
+               ' "url": "https://jiji.ng/lagos-island-west/bags/birkin.html", "details": "30 cm"}')
+    broken = '{"found": true, "answer": "An authentic Birkin is listed.", "items": [' + ",".join([listing] * 3) + "]"
+    agent = StoreAgent(LLM(FakeBedrock(text_reply(broken)), "m"), read=lambda url: "", search=lambda q, domains: [])
+
+    result = agent.check("https://jiji.ng/x", "Hermes Birkin")
+
+    assert result["found"] and result["answer"] == "An authentic Birkin is listed."
+    assert len(result["items"]) == 1 and result["items"][0]["price"] == "₦193,000"
+
+
+def test_a_store_answer_that_cant_be_read_never_reaches_the_screen_as_raw_text():
+    from app.agents.store_agent import StoreAgent
+
+    agent = StoreAgent(LLM(FakeBedrock(text_reply('We have used 1 read_page. {"found": tru')), "m"),
+                       read=lambda url: "", search=lambda q, domains: [])
+
+    result = agent.check("https://jiji.ng/x", "Hermes Birkin")
+
+    assert result == {"found": False, "answer": "The store check didn't give a clear answer.", "items": []}

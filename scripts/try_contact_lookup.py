@@ -16,6 +16,7 @@ import sys
 
 import mongomock
 
+from app import config
 from app.agents import contact_agent
 from app.agents.contact_agent import ContactAgent
 from app.embeddings import get_embedder
@@ -89,7 +90,7 @@ def main() -> None:
     # A gmail placeholder gives no clue; a school or work address does
     user_id = store.create_account(args.your_email or "you@gmail.com", "You", None, args.your_area)["user_id"]
     print("Loading the embedding model…")
-    agent = ContactAgent(ShowingLLM(LLM()), store, get_embedder(), search=tavily)
+    agent = ContactAgent(ShowingLLM(LLM(model_id=config.CONTACT_MODEL_ID)), store, get_embedder(), search=tavily)
 
     contact = {k: getattr(args, k) for k in ("name", "phone", "email", "company", "title", "notes")}
     summary = agent.import_contacts(user_id, [contact])

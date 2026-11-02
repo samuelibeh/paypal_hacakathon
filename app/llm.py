@@ -122,5 +122,10 @@ def _last_text(messages: list) -> str:
     return next((t for t in reversed(said) if t), "")
 
 
+# gpt-oss writes narrow and no-break spaces ("$2,500 – 2011 Nissan"); plain spaces read the same
+# everywhere the text goes (cards, descriptions, the JSON it's parsed from).
+_SPACES = str.maketrans({" ": " ", " ": " ", " ": " ", " ": " "})
+
+
 def _text_of(message: dict) -> str:
-    return "".join(b["text"] for b in message["content"] if "text" in b).strip()
+    return "".join(b["text"] for b in message["content"] if "text" in b).translate(_SPACES).strip()

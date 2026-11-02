@@ -289,6 +289,8 @@
   .tl-step, .tl-step > details { min-width: 0; }
   .tl-children { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; margin-left: 22px; padding-left: 12px; border-left: 2px solid var(--border); }
   .tl-children:empty { display: none; }
+  /* a step's own steps start a gap below it, not touching its box */
+  .tl-step > .tl-children { margin-top: 6px; }
   .tl-step > details > summary, .tl-thinking {
     display: flex; align-items: center; gap: 10px; padding: 8px 12px 8px 10px; min-width: 0;
     list-style: none; border-radius: var(--r-md); background: color-mix(in srgb, var(--subtle) 60%, transparent);
@@ -337,6 +339,35 @@
   .tl-step > details > summary > .tl-status::before { content: "✓ "; color: var(--ok); }
   .tl-step > details > summary > .tl-status:empty::before { content: ""; }
   .tl-note { color: var(--text-2); font-style: italic; padding: 2px 0 2px 12px; overflow-wrap: anywhere; }
+  /* the waiting line at the top of the log: two twinkling stars and words that take turns */
+  .tl-wait {
+    display: flex; align-items: center; gap: 8px; min-width: 0; padding: 2px 4px 10px; margin-bottom: 2px;
+    border-bottom: 1px solid var(--border); font-weight: 600; color: var(--text-2);
+  }
+  .tl-wait[hidden] { display: none; }
+  .tl-stars { position: relative; width: 18px; height: 16px; flex: none; }
+  .tl-stars .i { position: absolute; fill: currentColor; stroke: none; }
+  .tl-stars .big { width: 14px; height: 14px; left: 0; top: 2px; color: var(--blue); animation: twinkle 1.6s ease-in-out infinite; }
+  .tl-stars .small { width: 7px; height: 7px; right: 0; top: 0; color: var(--sky); animation: pop 1.6s ease-in-out .8s infinite; }
+  @keyframes twinkle {
+    0%, 100% { transform: scale(.85) rotate(0deg); filter: drop-shadow(0 0 0 rgba(96,205,255,0)); }
+    50% { transform: scale(1.15) rotate(20deg); filter: drop-shadow(0 0 4px rgba(96,205,255,.9)); }
+  }
+  @keyframes pop { 0%, 100% { transform: scale(0); opacity: 0; } 40%, 60% { transform: scale(1); opacity: 1; } }
+  /* one line that never wraps: words that don't fit end in "…" */
+  .tl-words { position: relative; flex: 1; min-width: 0; height: 20px; overflow: hidden; }
+  .tl-words > span {
+    position: absolute; inset: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    transition: transform .45s ease, opacity .45s ease;
+  }
+  .tl-words > span.out { transform: translateY(-100%); opacity: 0; }
+  .tl-words > span.in { transform: translateY(100%); opacity: 0; }
+  .tl-time { margin-left: auto; flex: none; font: 500 11px var(--mono); color: var(--text-3); }
+  @media (prefers-reduced-motion: reduce) {
+    .tl-stars .big, .tl-stars .small { animation: none; }
+    .tl-stars .small { transform: none; opacity: 1; }
+    .tl-words > span { transition: none; }
+  }
   /* the store agent's look inside a store gets room above and below, apart from the searches */
   .tl-step.tl-store { margin: 6px 0; }
   .tl-body pre {
@@ -1122,7 +1153,14 @@ async function streamChat(body, onEvent, signal) {
   const decoder = new TextDecoder();
   let buffer = "";
   for (;;) {
-    const { value, done } = await reader.read();
+    let chunk;
+    try {
+      chunk = await reader.read();
+    } catch (e) {
+      if (signal?.aborted) throw e;  // the user pressed Stop
+      throw dropped();  // e.g. Safari's "Load failed" when the app went to the background
+    }
+    const { value, done } = chunk;
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
     let end;
@@ -1138,7 +1176,31 @@ async function streamChat(body, onEvent, signal) {
       onEvent(event);
     }
   }
-  throw new Error("The connection closed before the reply arrived.");
+  throw dropped();
+}
+
+// The stream broke after the server had the message, so the reply is still coming: send()
+// waits for it (recoverReply) instead of showing an error.
+const dropped = () => Object.assign(new Error("The connection closed before the reply arrived."), { dropped: true });
+
+// After a dropped stream: wait until the server has finished the reply, then fetch it from the
+// current chat. Waits while the app is in the background, and keeps trying while offline.
+// Returns the reply, or null when the server has no reply for this message (it restarted).
+async function recoverReply(text, signal) {
+  for (;;) {
+    if (signal.aborted) throw Object.assign(new Error("Stopped"), { stopped: true });
+    if (!document.hidden) {
+      try {
+        const { working } = await api(`/chat/${uidPath()}/status`);
+        if (!working) {
+          const { turns = [] } = await api(`/chat/${uidPath()}/current`);
+          const last = turns[turns.length - 1];
+          return last && last.message === text ? last.reply : null;
+        }
+      } catch {}  // still offline: try again shortly
+    }
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+  }
 }
 
 // Minimal, escape-first markdown: paragraphs, lists, **bold**, links.
@@ -1220,8 +1282,17 @@ const botMsg = (...kids) => h("div", { class: "msg bot" },
   h("div", { class: "avatar-bot" }, icon("logo")), h("div", { class: "bot-body" }, ...kids));
 
 // The deals in a reply. On a phone they sit side by side and swipe; dots show which is in view.
+// The cheapest card, when every priced card is in one currency; otherwise none, since ₦ and $
+// prices don't compare.
+function cheapest(deals) {
+  const priced = deals.map((d, i) => [Number(d.amount), d.currency, i]).filter(([amount]) => amount > 0);
+  if (priced.length < 2 || new Set(priced.map(([, currency]) => currency)).size > 1) return -1;
+  return priced.reduce((min, p) => (p[0] < min[0] ? p : min))[2];
+}
+
 function dealList(deals) {
-  const row = h("div", { class: "deals" }, deals.map((d, i) => dealCard(d, i)));
+  const best = cheapest(deals);
+  const row = h("div", { class: "deals" }, deals.map((d, i) => dealCard(d, i, i === best)));
   const dots = deals.length > 1 ? h("div", { class: "deal-dots" }, deals.map((_, i) => h("i", { class: i ? "" : "on" }))) : null;
   if (dots) {
     row.addEventListener("scroll", () => {
@@ -1236,14 +1307,14 @@ function dealList(deals) {
     row, dots);
 }
 
-function dealCard(d, i) {
+function dealCard(d, i, best) {
   const url = safeUrl(d.url);
   const canSelect = d.payable && d.deal_id;
   const store = d.store || "Store";
   const media = h("div", { class: "deal-media loading" },
     icon("bag"),
-    h("span", { class: "badge left" }, `#${i + 1}`),
-    i === 0 && d.price ? h("span", { class: "badge right" }, icon("sparkles", "xs"), "Best price") : null,
+    h("span", { class: "badge left" }, `#${d.n ?? i + 1}`),  // the number the reply uses for it
+    best ? h("span", { class: "badge right" }, icon("sparkles", "xs"), "Best price") : null,
   );
   loadDealPhoto(media, d, i);
   return h("div", { class: "deal", "data-deal-id": d.deal_id || null },
@@ -1587,6 +1658,52 @@ function stepSummary(tool, output, status) {
   return "Done";
 }
 
+// The waiting line at the top of the log: it appears once a reply has taken WAIT_AFTER seconds,
+// and its words take turns every WAIT_EVERY seconds.
+const WAIT_AFTER = 8;
+const WAIT_EVERY = 5;
+const WAIT_WORDS = ["This can take a minute: I'm checking real stores", "Hold tight, comparing prices…",
+                    "Looking inside the stores I found…", "Almost there…"];
+const WAIT_SLOW = [90, "Still going, some stores are slow to load"];  // joins the turns after 90s
+
+function waitingLine(started) {
+  const words = h("span", { class: "tl-words" }, h("span", {}, WAIT_WORDS[0]));
+  const clock = h("span", { class: "tl-time" });
+  const el = h("div", { class: "tl-wait", hidden: true },
+    h("span", { class: "tl-stars", "aria-hidden": "true" }, icon("sparkles", "big"), icon("sparkles", "small")),
+    words, clock);
+  let turn = 0, nextTurn = 0, fixed = false;
+
+  // The next words slide up into place as the old ones slide out.
+  const say = (text) => {
+    const old = words.firstElementChild;
+    if (old.textContent === text) return;
+    const next = h("span", { class: "in" }, text);
+    words.append(next);
+    requestAnimationFrame(() => requestAnimationFrame(() => { old.className = "out"; next.className = ""; }));
+    setTimeout(() => old.remove(), 500);
+  };
+  const tick = () => {
+    const secs = Math.floor((Date.now() - started) / 1000);
+    if (secs < WAIT_AFTER && !fixed) return;
+    el.hidden = false;
+    clock.textContent = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
+    if (fixed) return;
+    if (!nextTurn) nextTurn = Date.now() + WAIT_EVERY * 1000;
+    if (Date.now() >= nextTurn) {
+      const turns = secs >= WAIT_SLOW[0] ? [...WAIT_WORDS, WAIT_SLOW[1]] : WAIT_WORDS;
+      say(turns[++turn % turns.length]);
+      nextTurn += WAIT_EVERY * 1000;
+    }
+  };
+  const timer = setInterval(tick, 1000);
+  return {
+    el,
+    hold(text) { fixed = true; say(text); tick(); },  // stop the turns and show this, e.g. while reconnecting
+    stop() { clearInterval(timer); el.remove(); },
+  };
+}
+
 // A Claude Code style log of what the agent is doing. Sub-agent steps nest under the
 // step that started them (the deal finder's searches sit under "Finding deals").
 function createTimeline() {
@@ -1594,14 +1711,18 @@ function createTimeline() {
   const thinking = h("div", { class: "tl-thinking" }, h("span", { class: "tl-dot running" }, icon("sparkles")), "Thinking…");
   const steps = new Map();
   const started = Date.now();
+  const wait = waitingLine(started);
   let running = 0;
 
   const container = (parent) => steps.get(parent)?.children || root;
   const refresh = () => { thinking.hidden = running > 0; root.append(thinking); };
+  root.append(wait.el);  // first, so the steps grow under it
   refresh();
 
   return {
     el: root,
+    // The stream dropped and send() is waiting for the reply: say so instead of the turns.
+    reconnecting() { wait.hold("Still working, reconnecting…"); },
     handle(ev) {
       if (ev.type === "note") {
         // The store agent's notes are its model thinking aloud ("We have used 1 read_page…"), not for the shopper.
@@ -1643,6 +1764,7 @@ function createTimeline() {
     // Collapse into "Worked for 12s · 8 steps" once the reply is in.
     finish() {
       thinking.remove();
+      wait.stop();
       if (!steps.size) return null;
       const secs = Math.max(1, Math.round((Date.now() - started) / 1000));
       return h("details", { class: "worklog" }, h("summary", {}, icon("sparkles", "xs"), `Worked for ${secs}s · ${plural(steps.size, "step")}`), root);
@@ -1652,7 +1774,8 @@ function createTimeline() {
 
 function renderReply({ reply, tool_calls = [] }, worklog) {
   const last = (pred) => [...tool_calls].reverse().find(pred);
-  const deals = last((c) => c.tool === "find_deals" && Array.isArray(c.output?.deals))?.output.deals;
+  // Every find_deals call's deals, in order: the reply covers both the search and the retry.
+  const deals = tool_calls.filter((c) => c.tool === "find_deals" && Array.isArray(c.output?.deals)).flatMap((c) => c.output.deals);
   const contacts = last((c) => c.tool === "find_contacts" && Array.isArray(c.output))?.output;
   return botMsg(
     worklog,
@@ -1685,10 +1808,19 @@ async function send(text) {
   if (image) body.image = { media_type: image.media_type, data: image.data, thumb: image.thumb };
 
   try {
-    const out = await streamChat(body, (ev) => {
-      log.handle(ev);
-      messages.scrollTop = messages.scrollHeight;
-    }, replyStop.signal);
+    let out;
+    try {
+      out = await streamChat(body, (ev) => {
+        log.handle(ev);
+        messages.scrollTop = messages.scrollHeight;
+      }, replyStop.signal);
+    } catch (e) {
+      if (!e.dropped) throw e;
+      // The connection dropped (the app went to the background), but Scout carries on: wait for it.
+      log.reconnecting();
+      out = await recoverReply(text, replyStop.signal);
+      if (!out) throw new Error("Scout lost the connection before it could finish. Send your message again.");
+    }
     pending.replaceWith(renderReply(out, log.finish()));
     // An area they told Scout in the chat becomes their area, as if set with the pin.
     const told = [...(out.tool_calls || [])].reverse().find((c) => c.tool === "set_area")?.input?.area?.trim();
