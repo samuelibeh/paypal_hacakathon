@@ -1270,10 +1270,18 @@ function showEmpty() {
   ));
 }
 
+// New output keeps the chat at the bottom only while you're there: scroll up to read and it stays put.
+let following = true;
+messages.addEventListener("scroll", () => {
+  following = messages.scrollHeight - messages.scrollTop - messages.clientHeight < 80;
+}, { passive: true });
+const follow = () => { if (following) messages.scrollTop = messages.scrollHeight; };
+
 function addMsg(node) {
   if ($("#empty")) messages.replaceChildren(thread);
   thread.append(node);
-  messages.scrollTop = messages.scrollHeight;
+  messages.scrollTop = messages.scrollHeight;  // only send() adds messages: you just sent one
+  following = true;
   return node;
 }
 
@@ -1812,7 +1820,8 @@ async function send(text) {
     try {
       out = await streamChat(body, (ev) => {
         log.handle(ev);
-        messages.scrollTop = messages.scrollHeight;
+        if (ev.type === "step_done" && ev.tool === "set_area" && ev.status !== "error") useToldArea(ev.output?.area);
+        follow();
       }, replyStop.signal);
     } catch (e) {
       if (!e.dropped) throw e;
@@ -1822,9 +1831,8 @@ async function send(text) {
       if (!out) throw new Error("Scout lost the connection before it could finish. Send your message again.");
     }
     pending.replaceWith(renderReply(out, log.finish()));
-    // An area they told Scout in the chat becomes their area, as if set with the pin.
-    const told = [...(out.tool_calls || [])].reverse().find((c) => c.tool === "set_area")?.input?.area?.trim();
-    if (told && told !== area()) saveArea(told).then(() => toast(`Showing deals near ${told}.`), (err) => toast(err.message, true));
+    // Already done from the stream, unless it dropped and the reply came from recoverReply.
+    useToldArea([...(out.tool_calls || [])].reverse().find((c) => c.tool === "set_area")?.input?.area);
     syncSelected();
     loadCart();  // the agent may have added something
     loadChatList();
@@ -1849,7 +1857,7 @@ async function send(text) {
     busy = false;
     replyStop = null;
     setSendButton("send");
-    messages.scrollTop = messages.scrollHeight;
+    follow();
     msgInput.focus();
   }
 }
@@ -1879,8 +1887,12 @@ $("#chatForm").addEventListener("submit", (e) => {
   e.preventDefault();
   if (busy) stopReply(); else send(msgInput.value);
 });
+// Phone keyboards have no Shift+Enter, so there the return key makes a new line and the send button sends.
+const touchTyping = matchMedia("(pointer: coarse)");
 msgInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!busy) send(msgInput.value); }  // Enter never stops
+  if (e.key !== "Enter" || e.shiftKey || e.isComposing || touchTyping.matches) return;
+  e.preventDefault();
+  if (!busy) send(msgInput.value);  // Enter never stops
 });
 msgInput.addEventListener("input", autoGrow);
 
@@ -1923,10 +1935,25 @@ async function saveArea(place) {
     me.location = place || null;
     visit.set("guestArea", place || "");  // a guest's area lasts for this visit
   } else {
-    me = await api("/auth/me", { method: "PATCH", body: JSON.stringify({ location: place }) });
+    const before = me.location;
+    me.location = place || null;
+    syncLoc();  // the pin shows it now; the account catches up
+    try {
+      me = await api("/auth/me", { method: "PATCH", body: JSON.stringify({ location: place }) });
+    } catch (err) {
+      me.location = before;
+      syncLoc();
+      throw err;
+    }
   }
   syncLoc();
   syncAccount();
+}
+
+// An area they told Scout in the chat becomes their area, as if set with the pin.
+function useToldArea(told) {
+  told = told?.trim();
+  if (told && told !== area()) saveArea(told).then(() => toast(`Showing deals near ${told}.`), (err) => toast(err.message, true));
 }
 
 function syncLoc() {

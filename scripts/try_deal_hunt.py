@@ -134,7 +134,8 @@ def main() -> None:
             for d in result["deals"]:
                 facts = [f"lacks: {d['missing']}" if d.get("missing") else "",
                          f"discount: {d['discount']}" if d.get("discount") else "",
-                         f"price from {d['price_year']}" if d.get("price_year") else ""]
+                         f"posted {d['posted']} (from its link)" if d.get("posted")
+                         else f"price from {d['price_year']}" if d.get("price_year") else ""]
                 print(f"#{d.get('n')} {d.get('store')} | {d.get('title')} | {d.get('price')}"
                       + "".join(f"   <- {f}" for f in facts if f))
             heading("WHAT THE MAIN AGENT WAS SHOWN (the cards get the full deals)", "-")

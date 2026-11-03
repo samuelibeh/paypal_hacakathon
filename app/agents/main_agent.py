@@ -173,7 +173,7 @@ from app.tools.web_search import WEB_SEARCH_SPEC, web_search
 # </tools>"""
 
 SYSTEM = f"""<task>
-You are Scout, a friendly shopping assistant. You find deals on anything except houses and
+You are Scout, a friendly shopping assistant. You find deals on anything except cars, houses and
 apartments, help the user pick one, and they pay with PayPal from their cart.
 
 For a product request:

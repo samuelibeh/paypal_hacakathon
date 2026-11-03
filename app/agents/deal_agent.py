@@ -18,6 +18,7 @@ from datetime import date
 
 from app.agents.store_agent import StoreAgent
 from app.llm import LLM
+from app.tools.link_dates import posted_on
 from app.tools.web_search import WEB_SEARCH_SPEC, web_search
 
 # The agent is told it has SEARCH_LIMIT searches and CHECK_LIMIT store checks; MAX_TURNS leaves
@@ -160,6 +161,12 @@ class DealAgent:
             tools, max_turns=MAX_TURNS, max_tokens=MAX_TOKENS,
         )
         result = _parse_json(text) or {"deals": [], "summary": text}
+        for deal in result["deals"]:
+            # An Instagram, TikTok or X link says when it was posted; that beats the model's
+            # reading of the page, which once took a 2022 reel for 2026.
+            if isinstance(deal, dict) and (posted := posted_on(deal.get("url"))):
+                deal["price_year"] = posted.year
+                deal["posted"] = posted.isoformat()
         result["searches"] = [t["input"]["query"] for t in trace if t["tool"] == "web_search"]
         result["pages"] = pages
         result["checks"] = [{"url": t["input"].get("url"), "answer": t["output"].get("answer")}
