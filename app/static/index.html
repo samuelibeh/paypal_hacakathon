@@ -129,6 +129,10 @@
   .chat-head h1 { margin: 0; font-size: 20px; line-height: 26px; font-weight: 700; letter-spacing: -.4px; }
 
   .messages { flex: 1; overflow-y: auto; padding: 32px 40px 16px; display: flex; flex-direction: column; }
+  /* A swipe that reaches the end of a list stops there instead of dragging the whole page, which on
+     iPhones (with the keyboard up) fought the page being put back and made it shake. */
+  html, body { overscroll-behavior: none; }
+  .messages, .panel, .auth-screen, .review-list, .recent-chats { overscroll-behavior-y: contain; }
   .thread { width: 100%; max-width: 848px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
   .msg { overflow-wrap: anywhere; }
   .msg.user {
@@ -189,7 +193,7 @@
     background: var(--surface); border: 1px solid var(--border); border-radius: 24px; box-shadow: var(--e2);
     transition: border-color .15s, box-shadow .15s;
   }
-  .composer:focus-within { border-color: var(--blue); box-shadow: var(--e2), 0 0 0 4px var(--blue-soft); }
+  .composer:focus-within, .composer.dropping { border-color: var(--blue); box-shadow: var(--e2), 0 0 0 4px var(--blue-soft); }
   .composer textarea {
     border: 0; outline: 0; background: transparent; resize: none; padding: 0; width: 100%;
     font-size: 16px; line-height: 24px; max-height: 160px;
@@ -724,11 +728,14 @@
   /* sign in and create account */
   .auth-screen {
     position: fixed; inset: 0; z-index: 60; overflow-y: auto; background: var(--shell);
-    display: grid; place-items: center; padding: 24px max(16px, env(safe-area-inset-left)) 24px max(16px, env(safe-area-inset-right));
+    bottom: auto; height: var(--visible-height, 100%);  /* above the keyboard, so the form scrolls inside */
+    display: flex; flex-direction: column; align-items: center;
+    padding: 24px max(16px, env(safe-area-inset-left)) 24px max(16px, env(safe-area-inset-right));
   }
   .auth-card {
     width: min(420px, 100%); display: grid; gap: 14px; padding: 28px 26px; border-radius: 24px;
     background: var(--surface); box-shadow: var(--e2);
+    flex: none; margin-block: auto;  /* centred, but from the top when it's taller than the screen, so none is cut off */
   }
   .auth-card { position: relative; }
   .auth-card > .close-auth { position: absolute; top: 14px; right: 14px; }
@@ -840,7 +847,7 @@
     .recent-chats button small { font-size: 11px; opacity: .6; }
     .rail .me .avatar { width: 32px; height: 32px; font-size: 12px; }
     .side {
-      position: fixed; z-index: 30; top: 0; right: 0; bottom: 0; width: min(420px, 100vw);
+      position: fixed; z-index: 30; top: 0; right: 0; height: var(--visible-height, 100%); width: min(420px, 100vw);
       border: 0; border-radius: var(--r-lg) 0 0 var(--r-lg);
       box-shadow: var(--e2); transform: translateX(100%); visibility: hidden;
       transition: transform .22s ease, visibility 0s .22s;
@@ -2066,13 +2073,23 @@ $("#location").addEventListener("keydown", (e) => {
 
 // iPhone keyboards slide over the page rather than shrinking it, which hid the message box
 // and the area box while typing. Size the chat to the part of the screen that's visible.
+// iOS also scrolls the page to show a field you tap; that's put back once things settle, never
+// while a finger is down: putting it back on every scroll fought the swipe and made it shake.
 if (window.visualViewport) {
+  let fingers = 0;
+  let settle = null;
+  const putBack = () => {
+    clearTimeout(settle);
+    settle = setTimeout(() => { if (!fingers && window.scrollY) window.scrollTo(0, 0); }, 150);
+  };
   const fitToKeyboard = () => {
     document.documentElement.style.setProperty("--visible-height", `${Math.round(visualViewport.height)}px`);
-    if (window.scrollY) window.scrollTo(0, 0);
+    putBack();
   };
+  const countFingers = (e) => { fingers = e.touches.length; if (!fingers) putBack(); };
   visualViewport.addEventListener("resize", fitToKeyboard);
-  visualViewport.addEventListener("scroll", fitToKeyboard);
+  visualViewport.addEventListener("scroll", putBack);
+  for (const type of ["touchstart", "touchend", "touchcancel"]) addEventListener(type, countFingers, { passive: true });
   fitToKeyboard();
 }
 
@@ -2125,11 +2142,7 @@ function clearAttachment() {
   $("#attachPreview").replaceChildren();
 }
 
-$("#attachBtn").addEventListener("click", () => $("#fileInput").click());
-$("#fileInput").addEventListener("change", async (e) => {
-  const file = e.target.files[0];
-  e.target.value = "";
-  if (!file) return;
+async function attachImage(file) {
   if (!file.type.startsWith("image/")) return toast("Pick an image file.", true);
   try {
     attached = await shrinkImage(file);
@@ -2138,6 +2151,40 @@ $("#fileInput").addEventListener("change", async (e) => {
   }
   showAttachment(attached);
   msgInput.focus();
+}
+
+$("#attachBtn").addEventListener("click", () => $("#fileInput").click());
+$("#fileInput").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (file) attachImage(file);
+});
+
+// Drop a photo anywhere on the chat to attach it. Files dropped anywhere else are caught too, or
+// the browser would open the file in place of Scout.
+const dragsFiles = (e) => e.dataTransfer?.types.includes("Files");
+const canDropHere = (e) => $("#authScreen").hidden && e.target.closest?.(".chat");
+let dragDepth = 0;  // dragenter and dragleave fire for every child crossed
+const dropping = (on) => $("#chatForm").classList.toggle("dropping", on);
+document.addEventListener("dragenter", (e) => { if (dragsFiles(e)) { dragDepth++; dropping(Boolean(canDropHere(e))); } });
+document.addEventListener("dragleave", (e) => { if (dragsFiles(e) && --dragDepth <= 0) { dragDepth = 0; dropping(false); } });
+document.addEventListener("dragover", (e) => {
+  if (!dragsFiles(e)) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = canDropHere(e) ? "copy" : "none";
+  dropping(Boolean(canDropHere(e)));
+});
+document.addEventListener("drop", (e) => {
+  if (!dragsFiles(e)) return;
+  e.preventDefault();
+  dragDepth = 0;
+  dropping(false);
+  if (!canDropHere(e)) return;
+  const files = [...e.dataTransfer.files];
+  const image = files.find((f) => f.type.startsWith("image/"));
+  if (!image) return toast("Only photos can be added to a message.", true);
+  if (files.length > 1) toast("One photo per message: added the first.");
+  attachImage(image);
 });
 
 // ---------- cart and PayPal ----------
