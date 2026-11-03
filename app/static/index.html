@@ -1711,14 +1711,18 @@ function waitingLine(started) {
     words, clock);
   let turn = 0, nextTurn = 0, fixed = false;
 
-  // The next words slide up into place as the old ones slide out.
+  // The next words slide up into place as the old ones slide out. Everything already there leaves
+  // straight away: phones pause animation frames in the background, and words queued up then
+  // all showed at once, on top of each other.
   const say = (text) => {
-    const old = words.firstElementChild;
-    if (old.textContent === text) return;
-    const next = h("span", { class: "in" }, text);
+    if (words.lastElementChild?.textContent === text) return;
+    for (const old of words.children) {
+      old.className = "out";
+      setTimeout(() => old.remove(), 500);
+    }
+    const next = h("span", { class: document.hidden ? "" : "in" }, text);
     words.append(next);
-    requestAnimationFrame(() => requestAnimationFrame(() => { old.className = "out"; next.className = ""; }));
-    setTimeout(() => old.remove(), 500);
+    requestAnimationFrame(() => requestAnimationFrame(() => { if (words.lastElementChild === next) next.className = ""; }));
   };
   const tick = () => {
     const secs = Math.floor((Date.now() - started) / 1000);
@@ -1798,8 +1802,17 @@ function createTimeline() {
       }
       refresh();
     },
-    // Collapse into "Worked for 12s · 8 steps" once the reply is in.
-    finish() {
+    // Collapse into "Worked for 12s · 8 steps" once the reply is in. Steps whose end never
+    // arrived (the connection dropped, and the reply was fetched afterwards) stop spinning:
+    // done if the reply came, unfinished if it didn't.
+    finish(replied = true) {
+      for (const s of steps.values()) {
+        if (!s.row.classList.contains("running")) continue;
+        s.row.classList.remove("running");
+        s.dot.classList.remove("running");
+        if (replied) s.dot.classList.add("ok");
+        s.status.textContent = replied ? "Done" : "Didn't finish";
+      }
       thinking.remove();
       wait.stop();
       if (!steps.size) return null;
@@ -1879,7 +1892,7 @@ async function send(text) {
       }
       if (image && !attached) showAttachment(image);
     } else {
-      const worklog = log.finish();
+      const worklog = log.finish(false);
       pending.replaceWith(...[worklog && botMsg(worklog), h("div", { class: "msg error" }, e.message)].filter(Boolean));
     }
   } finally {
@@ -3098,7 +3111,11 @@ function showAuth(view, note = "") {
     segments.slice(authStep, reached).forEach((s, k) => { s.classList.add("filling"); s.style.animationDelay = `${k * 0.45}s`; });
     segments.slice(reached, authStep).forEach((s) => s.classList.add("emptying"));
     authStep = reached;
-    steps.replaceWith(h("div", { class: "auth-head" }, steps, close));
+    // Put the row in the bar's place before moving the bar into it (built the other way round,
+    // the bar is already inside the row when it's swapped for it, which throws).
+    const row = h("div", { class: "auth-head" });
+    steps.replaceWith(row);
+    row.append(steps, close);
   } else {
     authStep = 0;
     card.prepend(close);
