@@ -1,5 +1,7 @@
 # PayPal Shopping Agent
 
+**Live demo:** https://scout.91-98-71-172.sslip.io (hosted on a Hetzner VPS, PayPal sandbox)
+
 A user asks "where can I buy a fridge?". A main Claude agent passes the question to
 two sub-agents and returns the best deals it found, plus any of the user's contacts who
 could help: someone who sells fridges, repairs them, or just bought one.
@@ -163,5 +165,6 @@ accounts: Gmail refresh tokens are stored in MongoDB (`google_accounts`) and sho
 encrypted too. The payment agent only reads mail from the store's own domains, and only sends
 the one follow-up email for a purchase the user paid for.
 
-`claude_api.py` is a standalone helper for the direct Anthropic API and for Bedrock, from the
-first iteration of this repo.
+## License
+
+MIT. See [LICENSE](LICENSE).
