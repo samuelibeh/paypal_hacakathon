@@ -57,6 +57,11 @@ def test_who_counts_as_the_same_person_and_who_gets_searched():
     assert contact_sources.work_domain("a@gmail.com") is None and contact_sources.work_domain("a@slot.ng") == "slot.ng"
 
 
+def _helpful(*numbers):
+    """The contact model's answer to which shortlisted contacts can help."""
+    return json.dumps({"helpful": [{"n": n, "why": f"Reason {n}."} for n in numbers]})
+
+
 def _agent(store, *replies, search=None):
     client = FakeBedrock(*[text_reply(r) for r in replies])
     return ContactAgent(LLM(client, "m"), store, FakeEmbedder(), search=search or (lambda q, max_results: [])), client
@@ -94,7 +99,7 @@ def test_one_clear_match_is_described_with_its_links_and_can_be_suggested():
         return [{"title": "Morris Adeyemi - Owner", "url": "https://adeyemi.ng/about", "content": "Fridges and ACs in Ikeja"}]
 
     reply = json.dumps({"decision": "match", "description": "Runs Adeyemi Appliances in Ikeja, selling fridges.", "results": [1]})
-    agent, _ = _agent(store, reply, search=search)
+    agent, _ = _agent(store, reply, _helpful(1), search=search)
     agent.import_contacts("u1", [{"name": "Morris Adeyemi", "company": "Adeyemi Appliances", "phone": "0803 111 2222"}])
 
     assert agent.look_up_next() and not agent.look_up_next()
@@ -112,7 +117,7 @@ def test_several_people_are_asked_about_and_ticked_ones_become_one_description()
         {"title": "Speaker at a cloud meetup", "summary": "Talks on cloud costs.", "results": [3]},
         {"title": "Founder of LightEd", "summary": "Runs a solar project in Abuja.", "results": [4]},
     ]})
-    agent, client = _agent(store, choose, "Cloud engineer at TradeMindsAI who speaks on cloud costs.",
+    agent, client = _agent(store, choose, "Cloud engineer at TradeMindsAI who speaks on cloud costs.", _helpful(1),
                            search=lambda q, max_results: results)
     agent.import_contacts("u1", [{"name": "Maurice Anigbogu"}])
     agent.look_up_next()
@@ -206,7 +211,7 @@ def test_a_number_already_saved_is_asked_about_before_anything_changes():
 
 def test_the_whole_card_can_be_edited_and_a_clashing_number_is_asked_about():
     store = fake_store()
-    agent, _ = _agent(store)
+    agent, _ = _agent(store, _helpful(1))
     agent.add_contact("u1", {"name": "Ayo Atunrase", "phone": "08165438884"})
     agent.add_contact("u1", {"name": "Victor Odoh", "phone": "09087654321"})
     victor = next(c for c in store.list_contacts("u1") if c["name"] == "Victor Odoh")
@@ -220,6 +225,38 @@ def test_the_whole_card_can_be_edited_and_a_clashing_number_is_asked_about():
     clash = agent.edit_contact("u1", victor["contact_id"], {"name": "Victor Odoh Jr", "phone": "08165438884"})
     assert clash["conflict"]["name"] == "Ayo Atunrase"
     assert store.get_contact("u1", victor["contact_id"])["phone"] == "09087654321"  # unchanged until they choose
+
+
+def _described(store, agent, *people):
+    for name, profile in people:
+        phone = f"080{len(store.list_contacts('u1')):08d}"
+        agent.add_contact("u1", {"name": name, "phone": phone})
+        contact = next(c for c in store.list_contacts("u1") if c["name"] == name)
+        agent.edit_contact("u1", contact["contact_id"], {"name": name, "phone": phone, "profile": profile})
+
+
+def test_only_the_contacts_the_model_says_can_help_are_suggested_with_why():
+    store = fake_store()
+    vet = json.dumps({"helpful": [{"n": 2, "why": "Bakes birthday cakes in Ikeja."}, {"n": 9, "why": "No such contact."},
+                                  {"n": 2, "why": "Listed twice."}, {"n": 1, "why": ""}]})
+    agent, client = _agent(store, vet)
+    _described(store, agent, ("Ayo Ashiru", "Software engineer in Lagos who builds cake ordering apps."),
+               ("Tola Ade", "Bakes custom cakes in Ikeja."))
+
+    [tola] = agent.find_contacts("u1", "cake in Ikeja")
+    assert tola == {"name": "Tola Ade", "phone": "08000000001", "email": None, "why": "Bakes birthday cakes in Ikeja."}
+    asked = client.requests[-1]["messages"][0]["content"][0]["text"]
+    assert "Need: cake in Ikeja" in asked and "Ayo Ashiru: Software engineer" in asked  # both shortlisted, one kept
+
+
+def test_no_contacts_are_suggested_when_the_check_fails():
+    store = fake_store()
+    agent, _ = _agent(store, "not json at all")
+    _described(store, agent, ("Tola Ade", "Bakes custom cakes in Ikeja."))
+    assert agent.find_contacts("u1", "cakes in Ikeja") == []
+
+    agent.llm.client.responses = []  # the model is unreachable: nothing, rather than an unchecked guess
+    assert agent.find_contacts("u1", "cakes in Ikeja") == []
 
 
 def test_searching_again_keeps_the_description_unless_something_new_is_found():

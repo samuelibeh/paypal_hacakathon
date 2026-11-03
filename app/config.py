@@ -41,7 +41,9 @@ MONGODB_VECTOR_INDEX = os.getenv("MONGODB_VECTOR_INDEX")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
 EMBEDDING_DIM = 384
 
-CONTACT_MATCH_THRESHOLD = float(os.getenv("CONTACT_MATCH_THRESHOLD", "0.5"))
+# Similarity a contact needs to be shortlisted for the contact model, which decides who can help.
+# bge-small scores unrelated texts around 0.4-0.5, so this is a loose net, not the decision.
+CONTACT_MATCH_THRESHOLD = float(os.getenv("CONTACT_MATCH_THRESHOLD", "0.4"))
 
 # PayPal checkout (REST app credentials from https://developer.paypal.com/dashboard/applications)
 PAYPAL_CLIENT_ID = os.getenv("PAYPAL_CLIENT_ID")

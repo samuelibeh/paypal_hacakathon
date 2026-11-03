@@ -3,6 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script>
+  // iPhones zoom in on any field with text under 16px when you tap it, and stay zoomed. maximum-scale=1
+  // stops that; iOS still lets you pinch to zoom. Android doesn't zoom on tap, and there this setting
+  // would block pinch-zoom, so it's iOS only.
+  if (/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)) {
+    document.querySelector('meta[name="viewport"]').content += ", maximum-scale=1";
+  }
+</script>
 <meta name="theme-color" content="#001C64">
 <title>Scout · PayPal shopping agent</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2360CDFF'/%3E%3Cstop offset='1' stop-color='%230070E0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='9' fill='url(%23g)'/%3E%3Cg transform='translate(4 4)'%3E%3Cpath d='M17.2 6.6C16.2 5 14.3 4 12.2 4 9.2 4 7 5.7 7 8.1c0 5 10 3 10 8.1C17 18.5 14.8 20 12 20c-2.4 0-4.4-1.1-5.4-2.9' fill='none' stroke='%23fff' stroke-width='2.6' stroke-linecap='round'/%3E%3Cpath d='M18.4 2.2l.7 1.9 1.9.7-1.9.7-.7 1.9-.7-1.9-1.9-.7 1.9-.7z' fill='%23fff'/%3E%3Ccircle cx='6.4' cy='17.3' r='2.1' fill='%23fff'/%3E%3C/g%3E%3C/svg%3E">
@@ -748,8 +756,20 @@
   .added .who > .i { color: var(--ok); }
   .auth-card .btn { height: 46px; }
   .steps { display: flex; gap: 6px; }
-  .steps i { flex: 1; height: 4px; border-radius: 4px; background: var(--subtle); }
-  .steps i.on { background: var(--blue); }
+  /* sign-up progress, with the close button at the end of its row instead of over the last step */
+  .auth-head { display: flex; align-items: center; gap: 12px; margin: -8px -10px 0 0; }
+  .auth-head .steps { flex: 1; min-width: 0; }
+  .auth-card .steps i { position: relative; flex: 1; height: 4px; border-radius: 4px; background: var(--subtle); overflow: hidden; }
+  .auth-card .steps i::after {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--blue);
+    transform: scaleX(0); transform-origin: left;
+  }
+  .auth-card .steps i.on::after { transform: scaleX(1); }
+  /* a step reached fills from the left; a step gone back from empties the same way */
+  .auth-card .steps i.filling::after { animation: step-fill .55s cubic-bezier(.4, 0, .2, 1) both; }
+  .auth-card .steps i.emptying::after { animation: step-fill .55s cubic-bezier(.4, 0, .2, 1) reverse both; }
+  @keyframes step-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  @media (prefers-reduced-motion: reduce) { .auth-card .steps i::after { animation: none !important; } }
   .btn.google { gap: 10px; }
   .btn.google svg { width: 18px; height: 18px; }
   .or-line { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--text-3); }
@@ -1407,6 +1427,8 @@ function contactCard(c) {
         h("div", { class: "src" }, "Current description · kept until a new one is found")];
     } else if (status === "check") {
       body = [whichOne()];
+    } else if (c.why) {  // suggested in a chat: why they can help with this, from the contact agent
+      body = [h("p", {}, c.why)];
     } else if (c.profile) {
       body = [h("p", {}, c.profile),
         source ? h("div", { class: "src" }, icon(source[0], "xs"), source[1],
@@ -1906,12 +1928,23 @@ $("#resetBtn").addEventListener("click", async () => {
 // The area lives on the account, so it follows you to other devices. The browser's
 // coordinates are turned into an area name on the server and never stored.
 
-let geoPermission = "prompt";  // "granted", "denied" or "prompt"
+// "ask": the browser can still ask. "stuck": an iPhone that was told "Don't Allow" won't ask again
+// until the page reloads, so it's always offered a reload. "blocked" (not iPhones): turned off in
+// the browser's settings.
+let geoState = "ask";
+const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 navigator.permissions?.query({ name: "geolocation" }).then((status) => {
-  geoPermission = status.state;
-  status.onchange = () => { geoPermission = status.state; syncLoc(); };
+  const sync = () => {
+    if (status.state === "denied") { if (!isIOS) geoState = "blocked"; }  // on an iPhone, "denied" may only mean this visit
+    else if (geoState === "blocked") geoState = "ask";  // allowed again in settings
+    syncLoc();
+  };
+  status.onchange = sync;
+  if (status.state === "denied" && !isIOS) geoState = "blocked";
   syncLoc();
 }).catch(() => {});
+
+const blockedHow = () => `${touchTyping.matches ? "Tap" : "Click"} the icon at the left of the address bar to allow it`;
 
 const area = () => me?.location || "";
 
@@ -1922,9 +1955,15 @@ function locate() {
   });
 }
 
-// The device's area, e.g. "Ikeja, Lagos". Throws an error with code 1 when access is blocked.
+// The device's area, e.g. "Ikeja, Lagos". Throws an error with code 1 when access is refused,
+// and sets geoState: a refusal that takes a moment was someone tapping "Don't Allow", so it can
+// ask again; an instant one means the browser didn't ask at all.
 async function deviceArea() {
-  const { coords } = await locate();
+  const asked = Date.now();
+  const { coords } = await locate().catch((e) => {
+    if (e.code === 1) geoState = Date.now() - asked > 500 ? "ask" : isIOS ? "stuck" : "blocked";
+    throw e;
+  });
   const { place } = await api(`/geo/reverse?lat=${coords.latitude}&lon=${coords.longitude}`);
   if (!place) throw new Error("Couldn't tell which area that is. Type it instead.");
   return place;
@@ -1963,9 +2002,17 @@ function syncLoc() {
   $("#pinBtn").setAttribute("aria-label", known ? `Your area: ${area()}. Change it` : "Set your area");
   $("#locNoteRow").hidden = known || !me || !$("#areaBar").hidden;
   // the pin itself opens the box for typing an area
-  $("#locNote").replaceChildren(...(geoPermission === "denied"
-    ? [icon("info", "xs"), "Location access is blocked. Click the 🔒 in the address bar to allow it"]
-    : [icon("info", "xs"), h("button", { type: "button", onclick: useMyArea }, "Allow location access"), "for deals near you"]));
+  $("#locNote").replaceChildren(icon("info", "xs"), ...(
+    geoState === "blocked" ? [`Location is off for Scout. ${blockedHow()}, or type your area`]
+    : geoState === "stuck" ? ["Your phone asks once per visit.", h("button", { type: "button", onclick: reloadToAsk },
+      isGuest() && thread.childElementCount ? "Reload to ask again (clears this chat)" : "Reload to ask again")]
+    : [h("button", { type: "button", onclick: useMyArea }, "Allow location access"), "for deals near you"]));
+}
+
+// An iPhone asks again on a fresh page: reload, then ask straight away.
+function reloadToAsk() {
+  visit.set("askLocation", "1");
+  location.reload();
 }
 
 function openPin() {
@@ -1999,8 +2046,11 @@ async function useMyArea() {
     closePin();
     toast(`Showing deals near ${area()}.`);
   } catch (e) {
-    if (e.code === 1) { geoPermission = "denied"; syncLoc(); toast("Location access is blocked. Click the 🔒 in the address bar to allow it, or type your area.", true); }
-    else toast(e.message || "Couldn't find your location. Type your area instead.", true);
+    if (e.code !== 1) toast(e.message || "Couldn't find your location. Type your area instead.", true);
+    else if (geoState === "stuck") toast("Your phone asks once per visit. Reload to ask again, or type your area.", true);
+    else if (geoState === "blocked") toast(`Location is off for Scout. ${blockedHow()}, or type your area.`, true);
+    // "Don't Allow" just now: their choice, nothing to report. The note still offers to ask again.
+    syncLoc();
   } finally {
     btn.disabled = false;
   }
@@ -2824,6 +2874,8 @@ const GOOGLE_G = '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA433
 // Creating an account is two steps: who you are (the account is made here), then where
 // you shop, which the browser can fill in if you allow location access.
 
+let authStep = 0;  // sign-up steps the progress bar showed last, so the next one animates from there
+
 function showAuth(view, note = "") {
   const card = $("#authCard");
   const field = (label, attrs) => h("label", { class: "field" }, label, h("input", attrs));
@@ -2836,6 +2888,7 @@ function showAuth(view, note = "") {
   const done = () => startApp();  // load the account, with what the guest did moved in
   const close = h("button", { class: "icon-btn close-auth", type: "button", "aria-label": "Close",
     onclick: ["where", "people", "people-add"].includes(view) ? done : closeAuth }, icon("x", "sm"));
+  if ($("#authScreen").hidden) authStep = 0;  // just opened: the bar fills from empty
   $("#authScreen").hidden = false;
 
   if (view === "signin") {
@@ -2884,8 +2937,11 @@ function showAuth(view, note = "") {
       "aria-label": "Your area", value: visit.get("guestArea", "") });  // what they set as a guest
     const find = h("button", { class: "btn ghost block", type: "button" }, icon("pin", "sm"), "Use my location");
     const go = h("button", { class: "btn block", type: "submit" }, "Start shopping");
+    // No reload offered here: it would leave sign-up. They can type it, or use the pin later.
     const blocked = () => status.replaceChildren(h("div", { class: "blocked" }, icon("info"),
-      h("div", {}, h("b", {}, "Location access is blocked"), h("span", {}, "Click the 🔒 in the address bar to allow it, or type your area below."))));
+      h("div", {}, ...(geoState === "stuck"
+        ? [h("b", {}, "Your phone asks once per visit"), h("span", {}, "Type your area below.")]
+        : [h("b", {}, "Location is off for Scout"), h("span", {}, `${blockedHow()}, or type your area below.`)]))));
     find.addEventListener("click", async () => {
       busy(find, true);
       find.lastChild.textContent = "Finding you…";
@@ -2894,7 +2950,7 @@ function showAuth(view, note = "") {
         status.replaceChildren(h("div", { class: "found" }, icon("pin"), h("div", {}, found, h("small", {}, "Found from your device"))));
         find.hidden = true;
       } catch (err) {
-        if (err.code === 1) { geoPermission = "denied"; blocked(); }
+        if (err.code === 1) { if (geoState === "ask") status.replaceChildren(); else blocked(); }
         else status.replaceChildren(h("p", { class: "error-text" }, err.message || "Couldn't find your location. Type your area instead."));
         find.lastChild.textContent = "Try again";
         busy(find, false);
@@ -2905,7 +2961,7 @@ function showAuth(view, note = "") {
       h("p", { class: "lead" }, "Scout looks for stores and deals near you. Only the area is used, never your exact address."),
       find, status, h("div", { class: "or-line" }, "or type it"), typed, error, go,
       h("div", { class: "auth-switch" }, h("button", { class: "link", type: "button", onclick: () => showAuth("people") }, "Skip for now")));
-    if (geoPermission === "denied") blocked();
+    if (geoState !== "ask") blocked();
     card.onsubmit = async (e) => {
       e.preventDefault();
       const place = typed.value.trim() || found;
@@ -2987,7 +3043,19 @@ function showAuth(view, note = "") {
       };
     }
   }
-  card.prepend(close);
+  const steps = card.querySelector(":scope > .steps");
+  if (steps) {
+    // The card is rebuilt for each step, so animate the segments that changed since the last one.
+    const segments = [...steps.children];
+    const reached = segments.filter((s) => s.classList.contains("on")).length;
+    segments.slice(authStep, reached).forEach((s, k) => { s.classList.add("filling"); s.style.animationDelay = `${k * 0.45}s`; });
+    segments.slice(reached, authStep).forEach((s) => s.classList.add("emptying"));
+    authStep = reached;
+    steps.replaceWith(h("div", { class: "auth-head" }, steps, close));
+  } else {
+    authStep = 0;
+    card.prepend(close);
+  }
   card.querySelector("input")?.focus();
 }
 
@@ -3019,7 +3087,14 @@ function startApp() {
     loadPush();
     loadContacts();
   }
-  if (!started) { started = true; handleGmailReturn(); }
+  if (!started) {
+    started = true;
+    handleGmailReturn();
+    if (visit.get("askLocation", "")) {  // reloaded so the iPhone asks again
+      visit.set("askLocation", "");
+      useMyArea();
+    }
+  }
 }
 
 // ---------- past chats ----------

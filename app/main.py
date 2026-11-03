@@ -7,13 +7,14 @@ import logging
 import queue
 import threading
 import time
+import uuid
 from contextlib import asynccontextmanager
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
 import httpx
-from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -358,16 +359,54 @@ def sign_out(response: Response):
 
 
 @app.get("/auth/me")
-def me(request: Request, response: Response):
-    """The signed-in account, or the guest using this browser (made on the first visit)."""
+def me(request: Request, response: Response, background: BackgroundTasks):
+    """The signed-in account, or the guest using this browser (made on the first visit).
+    The app asks this once each time it opens, so it's where a visit is recorded."""
     user_id = auth.user_from_token(request.cookies.get(auth.COOKIE) or "")
     account = get_store().get_account(user_id) if user_id and not auth.is_guest(user_id) else None
     if account:
+        _note_visit(request, response, background, user_id, signed_in=True)
         return {**account, "guest": False}
     if not (user_id and auth.is_guest(user_id)):
         user_id = auth.new_guest_id()
         _set_cookie(response, request, user_id)
+    _note_visit(request, response, background, user_id, signed_in=False)
     return {"user_id": user_id, **GUEST}
+
+
+# Names this browser across visits and sign-ins, unlike the session cookie (a guest's ends
+# when the browser closes). It's random and says nothing about the person.
+DEVICE_COOKIE = "scout_device"
+
+
+def _note_visit(request: Request, response: Response, background: BackgroundTasks, user_id: str, signed_in: bool) -> None:
+    device_id = request.cookies.get(DEVICE_COOKIE) or uuid.uuid4().hex
+    response.set_cookie(DEVICE_COOKIE, device_id, max_age=365 * 86400, httponly=True, samesite="lax",
+                        secure=request.url.scheme == "https")  # renewed each visit
+    agent = request.headers.get("user-agent", "")
+    device, browser = _describe_agent(agent)
+    # After the response is sent, so a slow or unreachable database never holds up the app.
+    background.add_task(_record_visit, device_id, user_id, signed_in, device, browser, agent,
+                        request.client.host if request.client else None)
+
+
+def _record_visit(*args) -> None:
+    try:
+        get_store().record_visit(*args)
+    except Exception:
+        logger.exception("couldn't record a visit")
+
+
+def _describe_agent(agent: str) -> tuple[str, str]:
+    """("iPhone", "Safari") from a User-Agent header: enough to tell devices apart at a glance."""
+    device = next((name for key, name in (("iPhone", "iPhone"), ("iPad", "iPad"), ("Android", "Android"),
+                                          ("Windows", "Windows"), ("Macintosh", "Mac"), ("CrOS", "Chromebook"),
+                                          ("Linux", "Linux")) if key in agent), "Other")
+    # Order matters: Edge and Opera also say Chrome, and every iPhone browser says Safari.
+    browser = next((name for key, name in (("Edg", "Edge"), ("OPR", "Opera"), ("SamsungBrowser", "Samsung Internet"),
+                                           ("CriOS", "Chrome"), ("FxiOS", "Firefox"), ("Firefox", "Firefox"),
+                                           ("Chrome", "Chrome"), ("Safari", "Safari")) if key in agent), "Other")
+    return device, browser
 
 
 @app.patch("/auth/me")

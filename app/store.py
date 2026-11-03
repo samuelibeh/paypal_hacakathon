@@ -49,6 +49,18 @@ class Store:
         self.accounts = db["accounts"]
         self.accounts.create_index("email", unique=True)
         self.accounts.create_index("user_id", unique=True)
+        self.visits = db["visits"]
+        self.visits.create_index([("device_id", 1), ("at", -1)])
+        self.visits.create_index([("user_id", 1), ("at", -1)])
+
+    # --- visits ------------------------------------------------------------
+
+    def record_visit(self, device_id: str, user_id: str, signed_in: bool, device: str, browser: str,
+                     user_agent: str, ip: str | None) -> None:
+        """One opening of the app on one device, signed in or as a guest."""
+        self.visits.insert_one({"device_id": device_id, "user_id": user_id, "signed_in": signed_in,
+                                "device": device, "browser": browser, "user_agent": user_agent,
+                                "ip": ip, "at": _now()})
 
     # --- accounts ----------------------------------------------------------
 

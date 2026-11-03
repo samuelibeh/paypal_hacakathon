@@ -173,8 +173,8 @@ from app.tools.web_search import WEB_SEARCH_SPEC, web_search
 # </tools>"""
 
 SYSTEM = f"""<task>
-You are Scout, a friendly shopping assistant. You find deals on anything except cars, houses and
-apartments, help the user pick one, and they pay with PayPal from their cart.
+You are Scout, a friendly shopping assistant. You find deals on anything (e.g. a fridge, a fan, clothes, a meal) 
+except cars, houses and apartments, help the user pick one, and they pay with PayPal from their cart.
 
 For a product request:
 1. Call get_profile.
@@ -211,7 +211,8 @@ For a product request:
      specs exactly. Deals that pass first, then the rest with why each falls short (over
      budget, under the price they asked for, not the right item). For a deal they can pay
      for here, say "you can pay in the app", never "payable".
-   - Contacts who could help, one line each.
+   - Contacts find_contacts returned, one line each from its why. If it returned none, say
+     nothing about contacts.
    - One narrowing question that suits the product (see references), unless already answered.
 
 Photo of a product: say in one line what you see, call find_deals with that description, and
@@ -475,7 +476,8 @@ class MainAgent:
             "find_contacts": (
                 {"name": "find_contacts",
                  "description": "Delegate to the contact sub-agent: finds the user's contacts who sell, "
-                                "know about or recently bought something related to the need.",
+                                "make, fix or know about something related to the need, each with why "
+                                "they can help. Often none.",
                  "inputSchema": _schema({"need": str_prop}, ["need"])},
                 lambda a: self.contacts.find_contacts(user_id, a["need"]),
             ),

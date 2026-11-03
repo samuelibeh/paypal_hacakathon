@@ -114,13 +114,35 @@ def test_guests_get_an_id_for_this_browser_and_can_shop_but_not_keep_contacts(mo
     first = client.get("/auth/me")
     guest = first.json()["user_id"]
     assert guest.startswith("guest-")
-    assert "max-age" not in first.headers["set-cookie"].lower()  # ends when the browser closes
+    [session] = [c for c in first.headers.get_list("set-cookie") if c.startswith(f"{auth.COOKIE}=")]
+    assert "max-age" not in session.lower()  # ends when the browser closes
     assert client.get("/auth/me").json()["user_id"] == guest  # same guest on the next visit
 
     assert client.get(f"/cart/{guest}").status_code == 200
     assert client.get(f"/contacts/{guest}").status_code == 403
     assert client.get(f"/purchases/{guest}").status_code == 403
     assert client.patch("/auth/me", json={"location": "Ikeja"}).status_code == 403
+
+
+def test_each_opening_of_the_app_is_recorded_per_device(monkeypatch):
+    client, store = _client(monkeypatch)
+    iphone = {"user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 "
+                            "(KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"}
+    guest = client.get("/auth/me", headers=iphone).json()["user_id"]
+    client.post("/auth/signup", json={"name": "Sam", "email": "s@example.com", "password": "longenough"})
+    client.get("/auth/me", headers=iphone)
+
+    first, second = store.visits.find({}, {"_id": 0}).sort("at", 1)
+    assert first["device_id"] == second["device_id"]  # the same phone, before and after signing up
+    assert (first["user_id"], first["signed_in"]) == (guest, False)
+    assert (second["user_id"], second["signed_in"]) == ("demo-user", True)
+    assert (second["device"], second["browser"]) == ("iPhone", "Safari")
+
+
+def test_a_visit_that_cant_be_saved_doesnt_break_the_app(monkeypatch):
+    client, store = _client(monkeypatch)
+    monkeypatch.setattr(store, "record_visit", lambda *a: 1 / 0)
+    assert client.get("/auth/me").json()["guest"] is True
 
 
 def test_signing_up_keeps_what_the_guest_did(monkeypatch):
