@@ -4,7 +4,8 @@ from decimal import Decimal
 import httpx
 import pytest
 
-from app import checkout
+from app import checkout, config
+from app import rates as exchange
 from app.merchants import Merchant, Merchants
 from app.paypal import PayPal, PayPalError
 from tests.fakes import fake_store
@@ -45,6 +46,48 @@ class FakePayPalServer:
 
 def _deal(**fields):
     return checkout.prepare_deal(fields, MERCHANTS, rates={})  # not the rates in your .env
+
+
+def _rates_service(monkeypatch, body, status=200):
+    def get(url, timeout):
+        assert url.endswith("/USD")
+        return httpx.Response(status, json=body, request=httpx.Request("GET", url))
+
+    monkeypatch.setattr(exchange.httpx, "get", get)
+
+
+def test_live_rates_price_any_currency_and_are_saved(monkeypatch):
+    monkeypatch.setattr(exchange, "_live", {})
+    monkeypatch.setattr(config, "EXCHANGE_RATES", {"NGN": Decimal("0.00065"), "XOF": Decimal("0.002")})
+    _rates_service(monkeypatch, {"result": "success", "base_code": "USD", "rates": {"USD": 1, "PHP": 50, "NGN": 1000}})
+    store = fake_store()
+
+    assert exchange.refresh(store) == 3
+    assert checkout.charge_amount("5000.00", "PHP") == "100.00"
+    assert checkout.charge_amount("5000.00", "NGN") == "5.00"  # the live rate beats the fixed one
+    assert checkout.charge_amount("1000.00", "XOF") == "2.00"  # the fixed one fills a gap
+    assert checkout.charge_amount("5000.00", "EUR") is None    # no rate at all: links out to the store
+
+    exchange._live.clear()  # a restart, with the rates service down
+    exchange.load_saved(store)
+    assert checkout.charge_amount("5000.00", "PHP") == "100.00"
+
+
+@pytest.mark.parametrize("body, status", [
+    ({"result": "error", "error-type": "unsupported-code"}, 200),
+    ({"result": "success", "base_code": "EUR", "rates": {"PHP": 50}}, 200),  # priced in the wrong base
+    ({"result": "success", "base_code": "USD", "rates": {"PHP": 0, "NGN": "nonsense"}}, 200),
+    ({"result": "success", "base_code": "USD", "rates": {"PHP": 50}}, 429),
+])
+def test_a_bad_answer_from_the_rates_service_keeps_the_rates_in_use(monkeypatch, body, status):
+    monkeypatch.setattr(exchange, "_live", {"PHP": Decimal("0.02")})
+    _rates_service(monkeypatch, body, status)
+    store = fake_store()
+
+    with pytest.raises((ValueError, httpx.HTTPError)):
+        exchange.refresh(store)
+    assert checkout.charge_amount("5000.00", "PHP") == "100.00"
+    assert store.load_rates("USD") is None
 
 
 def _stock(store, user_id="u1"):

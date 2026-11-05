@@ -52,6 +52,15 @@ class Store:
         self.visits = db["visits"]
         self.visits.create_index([("device_id", 1), ("at", -1)])
         self.visits.create_index([("user_id", 1), ("at", -1)])
+        self.exchange_rates = db["exchange_rates"]
+
+    # --- exchange rates ----------------------------------------------------
+
+    def save_rates(self, base: str, rates: dict[str, str]) -> None:
+        self.exchange_rates.update_one({"_id": base}, {"$set": {"rates": rates, "fetched_at": _now()}}, upsert=True)
+
+    def load_rates(self, base: str) -> dict[str, str] | None:
+        return (self.exchange_rates.find_one({"_id": base}) or {}).get("rates")
 
     # --- visits ------------------------------------------------------------
 

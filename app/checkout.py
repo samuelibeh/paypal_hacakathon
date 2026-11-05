@@ -6,12 +6,12 @@ own PayPal account as the payee, so paying sends the money to the store. A cart 
 from one store at a time, since each payment goes to one payee.
 
 A deal priced in another currency (say NGN) keeps that price for showing, and gets a
-charge_amount in PAYPAL_CURRENCY at the rate in EXCHANGE_RATES; that's what PayPal charges.
+charge_amount in PAYPAL_CURRENCY at the day's rate (rates.py); that's what PayPal charges.
 """
 
 from decimal import Decimal, InvalidOperation
 
-from app import config
+from app import config, rates as exchange
 from app.merchants import Merchants, registry
 
 ZERO_DECIMAL_CURRENCIES = {"HUF", "JPY", "TWD"}  # PayPal rejects decimals for these
@@ -39,7 +39,7 @@ def charge_amount(amount: str | None, currency: str | None, rates: dict | None =
         return None
     if currency == config.PAYPAL_CURRENCY:
         return amount
-    rate = (config.EXCHANGE_RATES if rates is None else rates).get(currency)
+    rate = (exchange.current() if rates is None else rates).get(currency)
     return money(Decimal(amount) * rate, config.PAYPAL_CURRENCY) if rate else None
 
 

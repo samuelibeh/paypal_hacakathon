@@ -674,6 +674,8 @@
   .cart-total { display: flex; justify-content: space-between; align-items: baseline; }
   .cart-total span:first-child { font-size: 16px; font-weight: 600; }
   .cart-total span:last-child { font-size: 36px; font-weight: 800; letter-spacing: -1.4px; line-height: 1.1; }
+  .rates-credit { margin-top: -12px; text-align: right; font-size: 11px; color: var(--text-3); }
+  .rates-credit a { color: inherit; text-underline-offset: 2px; }
   #paypalButtons { min-height: 52px; display: grid; gap: 10px; }
   .empty-cart { display: grid; justify-items: center; text-align: center; gap: 10px; padding: 36px 12px; border: 1.5px dashed var(--border-strong); border-radius: var(--r-lg); }
   .empty-cart .thumb { width: 56px; height: 56px; border-radius: 16px; }
@@ -1022,6 +1024,8 @@
     <div id="cartFooter" style="display: grid; gap: 16px;" hidden>
       <div class="divider"></div>
       <div class="cart-total"><span>Total</span><span id="cartTotal"></span></div>
+      <!-- the exchange rate service's free plan asks for this credit where its rates are used -->
+      <div class="rates-credit"><a href="https://www.exchangerate-api.com" target="_blank" rel="noopener">Rates By Exchange Rate API</a></div>
       <div id="paypalButtons"></div>
       <div class="note"><svg class="i sm"><use href="#i-mail"/></svg><p class="hint">After you pay, I watch your Gmail for the store's receipt and follow up with them if it doesn't arrive.</p></div>
     </div>

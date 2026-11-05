@@ -18,7 +18,7 @@ from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request, R
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from app import auth, checkout, config, contact_sources, events, push
+from app import auth, checkout, config, contact_sources, events, push, rates
 from app.auth import current_user, member, owner, same_user
 from app.agents.contact_agent import ContactAgent
 from app.agents.deal_agent import DealAgent
@@ -61,6 +61,23 @@ def _look_up_contacts(stop: threading.Event) -> None:
         stop.wait(1 if busy else 5)
 
 
+def _keep_rates_fresh(stop: threading.Event) -> None:
+    """Exchange rates for checkout: the last ones saved at once, then today's, then daily."""
+    try:
+        rates.load_saved(get_store())
+    except Exception:
+        logger.exception("couldn't load the saved exchange rates")
+    while not stop.is_set():
+        try:
+            count = rates.refresh(get_store())
+            startup_log.info("exchange rates refreshed: %d currencies", count)
+            wait = rates.REFRESH_SECONDS
+        except Exception:
+            logger.exception("couldn't refresh the exchange rates; keeping the last ones")
+            wait = rates.RETRY_SECONDS
+        stop.wait(wait)
+
+
 def _warm_up() -> None:
     """Load the slow pieces before the first request instead of during it: the embedding
     model (and its first encode), the database connection and the API clients. A piece that
@@ -97,6 +114,7 @@ async def lifespan(app: FastAPI):
     stop = threading.Event()
     threading.Thread(target=_watch_receipts, args=(stop,), daemon=True, name="receipt-watcher").start()
     threading.Thread(target=_look_up_contacts, args=(stop,), daemon=True, name="contact-lookups").start()
+    threading.Thread(target=_keep_rates_fresh, args=(stop,), daemon=True, name="exchange-rates").start()
     yield
     stop.set()
 

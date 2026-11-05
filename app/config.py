@@ -52,8 +52,9 @@ PAYPAL_ENV = os.getenv("PAYPAL_ENV", "sandbox")
 PAYPAL_BASE_URL = "https://api-m.paypal.com" if PAYPAL_ENV == "live" else "https://api-m.sandbox.paypal.com"
 # Deals priced in this currency can be paid in the app; others link out to the store.
 PAYPAL_CURRENCY = os.getenv("PAYPAL_CURRENCY", "USD").upper()
-# Prices in other currencies are charged in PAYPAL_CURRENCY at these fixed rates, e.g.
-# "NGN:0.00065" means 1 NGN = 0.00065 USD. A currency with no rate links out to the store.
+# Prices in other currencies are charged in PAYPAL_CURRENCY at the day's rate (rates.py). These
+# fixed rates only fill in for a currency that has no live rate, e.g. "NGN:0.00065" means
+# 1 NGN = 0.00065 USD. A currency with no rate at all links out to the store.
 EXCHANGE_RATES = {
     code.strip().upper(): Decimal(rate)
     for code, rate in (pair.split(":") for pair in os.getenv("EXCHANGE_RATES", "").split(",") if ":" in pair)
