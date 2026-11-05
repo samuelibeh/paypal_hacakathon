@@ -58,6 +58,12 @@ EXCHANGE_RATES = {
     code.strip().upper(): Decimal(rate)
     for code, rate in (pair.split(":") for pair in os.getenv("EXCHANGE_RATES", "").split(",") if ":" in pair)
 }
+# Countries Scout covers, as ISO codes: for now, those where English is a main language. Anyone
+# with an area elsewhere is told so above the message box; Scout still answers them.
+COVERED_COUNTRIES = {code.strip().upper() for code in os.getenv(
+    "COVERED_COUNTRIES",
+    "US,GB,CA,AU,NZ,IE,NG,GH,KE,ZA,UG,TZ,ZM,ZW,RW,BW,NA,MW,SL,LR,GM,CM,JM,TT,BB,BS,BZ,GY,MT,SG,IN,PK,PH,FJ",
+).split(",") if code.strip()}
 # Stores the app pays directly (their PayPal account is the payee). See merchants.example.json.
 MERCHANTS_FILE = os.getenv("MERCHANTS_FILE", "merchants.json")
 

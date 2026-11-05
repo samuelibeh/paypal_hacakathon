@@ -1,3 +1,4 @@
+import httpx
 from fastapi.testclient import TestClient
 
 from app import auth, main
@@ -143,6 +144,50 @@ def test_a_visit_that_cant_be_saved_doesnt_break_the_app(monkeypatch):
     client, store = _client(monkeypatch)
     monkeypatch.setattr(store, "record_visit", lambda *a: 1 / 0)
     assert client.get("/auth/me").json()["guest"] is True
+
+
+def test_an_area_outside_the_covered_countries_is_flagged(monkeypatch):
+    main._uncovered_country.cache_clear()
+    client, _ = _client(monkeypatch)
+    client.get("/auth/me")
+    # place: its best match worldwide, then its best match in the covered countries
+    world = {"wuhan, china": (("cn", "China", .67), ("ca", "Canada", .05)),
+             "berlin": (("de", "Germany", .85), ("ca", "Canada", .56)),  # a namesake doesn't count
+             "lekki": (("mx", "Mexico", 0), ("ng", "Nigeria", .32)),     # the known one does
+             "lagos": (("ng", "Nigeria", .65), ("ng", "Nigeria", .65))}
+    asked = []
+
+    def nominatim(url, params, headers, timeout):
+        asked.append(params["q"])
+        matches = world.get(params["q"])
+        if not matches:
+            return httpx.Response(200, json=[], request=httpx.Request("GET", url))
+        code, country, importance = matches[1 if "countrycodes" in params else 0]
+        body = [{"address": {"country": country, "country_code": code}, "importance": importance}]
+        return httpx.Response(200, json=body, request=httpx.Request("GET", url))
+
+    monkeypatch.setattr(main.httpx, "get", nominatim)
+    assert client.get("/geo/coverage", params={"place": "Wuhan, China"}).json() == {"covered": False, "country": "China"}
+    assert client.get("/geo/coverage", params={"place": "Berlin"}).json() == {"covered": False, "country": "Germany"}
+    assert client.get("/geo/coverage", params={"place": "Lekki"}).json() == {"covered": True}
+    assert client.get("/geo/coverage", params={"place": "Lagos"}).json() == {"covered": True}
+    assert client.get("/geo/coverage", params={"place": "nowhere at all"}).json() == {"covered": True}  # no guessing
+
+    asked.clear()
+    assert client.get("/geo/coverage", params={"place": " wuhan,  CHINA "}).json()["country"] == "China"
+    assert asked == []  # looked up once
+
+
+def test_a_failed_coverage_lookup_tells_nobody_they_are_outside(monkeypatch):
+    main._uncovered_country.cache_clear()
+    client, _ = _client(monkeypatch)
+    client.get("/auth/me")
+
+    def down(*args, **kwargs):
+        raise httpx.ConnectError("no network")
+
+    monkeypatch.setattr(main.httpx, "get", down)
+    assert client.get("/geo/coverage", params={"place": "Wuhan"}).json() == {"covered": True}
 
 
 def test_signing_up_keeps_what_the_guest_did(monkeypatch):

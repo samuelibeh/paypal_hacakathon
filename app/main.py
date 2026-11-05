@@ -439,6 +439,45 @@ def reverse_geocode(lat: float, lon: float, _: str = Depends(current_user)):
     return {"place": _area_name(address)}
 
 
+@app.get("/geo/coverage")
+def area_coverage(place: str, _: str = Depends(current_user)):
+    """Whether Scout covers the country an area is in. A place that can't be placed counts as
+    covered, so nobody is told they're outside on a guess."""
+    try:
+        country = _uncovered_country(" ".join(place.lower().split()))
+    except (httpx.HTTPError, ValueError):
+        return {"covered": True}
+    return {"covered": False, "country": country} if country else {"covered": True}
+
+
+@lru_cache(maxsize=512)  # a failed lookup raises, so it isn't kept
+def _uncovered_country(place: str) -> str | None:
+    """The country a place is in, if Scout doesn't cover it. Names repeat around the world, so
+    the best match abroad only counts if no covered place of that name is as well known: "Lekki"
+    is the one in Lagos, but "Berlin" isn't the one in Canada."""
+    found = _find_place(place) if place else None
+    if not found or found["address"].get("country_code", "").upper() in config.COVERED_COUNTRIES:
+        return None
+    namesake = _find_place(place, countrycodes=",".join(sorted(config.COVERED_COUNTRIES)).lower())
+    if namesake and _importance(namesake) >= _importance(found):
+        return None
+    return found["address"].get("country")
+
+
+def _importance(found: dict) -> float:
+    return float(found.get("importance") or 0)
+
+
+def _find_place(place: str, **params) -> dict | None:
+    resp = httpx.get(
+        "https://nominatim.openstreetmap.org/search",
+        params={"q": place, "format": "jsonv2", "limit": 1, "addressdetails": 1, "accept-language": "en", **params},
+        headers={"User-Agent": "ScoutShoppingAgent/1.0"}, timeout=20,  # nothing waits on it, and it can be slow
+    )
+    resp.raise_for_status()
+    return next(iter(resp.json()), None)
+
+
 def _area_name(address: dict) -> str | None:
     local = next((address[k] for k in ("suburb", "neighbourhood", "city_district", "town", "village")
                   if address.get(k)), None)

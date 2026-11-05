@@ -57,6 +57,7 @@
   .rail {
     background: var(--navy); display: flex; flex-direction: column; align-items: center;
     gap: 8px; padding: 20px 0; color: var(--on-dark); border-radius: var(--r-lg);
+    position: relative; z-index: 10;  /* its tooltips open over the chat column */
   }
   .logo {
     width: 44px; height: 44px; border-radius: 14px; background: var(--brand-grad);
@@ -195,10 +196,12 @@
   }
   .composer:focus-within, .composer.dropping { border-color: var(--blue); box-shadow: var(--e2), 0 0 0 4px var(--blue-soft); }
   .composer textarea {
-    border: 0; outline: 0; background: transparent; resize: none; padding: 0; width: 100%;
+    display: block; border: 0; outline: 0; background: transparent; resize: none; padding: 0; width: 100%;
     font-size: 16px; line-height: 24px; max-height: 160px;
   }
-  .composer textarea::placeholder { color: var(--text-3); }
+  /* the hint over the empty box: a real element, because a placeholder can't slide */
+  .msg-box { position: relative; min-width: 0; }
+  .msg-box .msg-hint { position: absolute; inset: 0; height: 24px; font-size: 16px; line-height: 24px; color: var(--text-3); pointer-events: none; }
   .tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .tool {
     display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px 0 10px;
@@ -248,6 +251,7 @@
     display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; padding: 5px 10px; border-radius: 999px;
     background: var(--err-soft); color: var(--err); font-size: 12px; font-weight: 600;
   }
+  .loc-note.cover { background: var(--blue-soft); color: var(--blue); border-radius: 14px; flex-wrap: nowrap; }
   .loc-note button { border: 0; background: none; padding: 0; color: inherit; font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
   .tools .grow { flex: 1; }
   .send {
@@ -277,6 +281,26 @@
   .btn.ghost:hover:not(:disabled) { background: var(--subtle); filter: none; }
   .btn.small { height: 34px; padding: 0 14px; font-size: 13px; }
   .btn.block { width: 100%; }
+  /* a button at work: its label and colour stay, a light crosses it, and it ignores more taps.
+     PayPal draws its own buttons in a frame, so there the light crosses the box around each one. */
+  .btn.sweeping, .use.sweeping, .pay-source.sweeping { position: relative; overflow: hidden; pointer-events: none; }
+  .btn.sweeping:disabled, .use.sweeping:disabled { opacity: 1; }
+  .pay-source.sweeping { isolation: isolate; border-radius: 26px; }
+  .btn.sweeping::after, .use.sweeping::after, .pay-source.sweeping::after {
+    content: ""; position: absolute; inset: 0; z-index: 1000; pointer-events: none; transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.45), transparent);
+    animation: btn-sweep 1.3s ease-in-out infinite;
+  }
+  .btn.ghost.sweeping::after, .use.sweeping::after {
+    background: linear-gradient(90deg, transparent, rgba(0,112,224,.18), transparent);
+  }
+  @keyframes btn-sweep { to { transform: translateX(100%); } }
+  @media (prefers-reduced-motion: reduce) {
+    .btn.sweeping::after, .use.sweeping::after, .pay-source.sweeping::after {
+      animation: none; transform: none; background: rgba(255,255,255,.25);
+    }
+    .btn.ghost.sweeping::after, .use.sweeping::after { background: rgba(0,112,224,.12); }
+  }
   .link { background: none; border: none; color: var(--blue); cursor: pointer; padding: 0; font-size: 13px; font-weight: 600; }
   input[type=text], .panel textarea {
     background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--r-md);
@@ -650,7 +674,7 @@
   .cart-total { display: flex; justify-content: space-between; align-items: baseline; }
   .cart-total span:first-child { font-size: 16px; font-weight: 600; }
   .cart-total span:last-child { font-size: 36px; font-weight: 800; letter-spacing: -1.4px; line-height: 1.1; }
-  #paypalButtons { min-height: 52px; }
+  #paypalButtons { min-height: 52px; display: grid; gap: 10px; }
   .empty-cart { display: grid; justify-items: center; text-align: center; gap: 10px; padding: 36px 12px; border: 1.5px dashed var(--border-strong); border-radius: var(--r-lg); }
   .empty-cart .thumb { width: 56px; height: 56px; border-radius: 16px; }
   .empty-cart strong { font-size: 15px; }
@@ -800,7 +824,9 @@
   .toast .dot .i { width: 13px; height: 13px; stroke-width: 3; }
   .toast.error .dot { background: var(--err); }
   @keyframes drop { from { opacity: 0; transform: translate(-50%, -6px); } to { opacity: 1; transform: translate(-50%, 0); } }
-  @media (prefers-reduced-motion: reduce) { .toast { animation: none; } }
+  .toast.leaving { animation: lift .22s ease forwards; }
+  @keyframes lift { to { opacity: 0; transform: translate(-50%, -14px); } }
+  @media (prefers-reduced-motion: reduce) { .toast, .toast.leaving { animation: none; } }
 
   /* ---------- smaller screens: the navy bar and the side panel tuck away ----------
      The menu icon in the header slides the bar out (with labels), and picking a page
@@ -960,6 +986,7 @@
   <div class="messages" id="messages"></div>
   <div class="composer-wrap">
     <div class="loc-note-row" id="locNoteRow" hidden><div class="loc-note" id="locNote"></div></div>
+    <div class="loc-note-row" id="coverRow" hidden><div class="loc-note cover" id="coverNote"></div></div>
     <div class="area-bar" id="areaBar" hidden>
       <svg class="i sm"><use href="#i-pin"/></svg>
       <input type="text" id="location" placeholder="Type your area, e.g. Yaba" aria-label="Your area" autocomplete="address-level2">
@@ -968,7 +995,10 @@
     </div>
     <form class="composer" id="chatForm">
       <div class="attach" id="attachPreview" hidden></div>
-      <textarea id="msg" rows="1" placeholder="What do you need? A product, a fix, a deal…"></textarea>
+      <div class="msg-box">
+        <textarea id="msg" rows="1" aria-label="Your message"></textarea>
+        <div class="tl-words msg-hint" id="msgHint" aria-hidden="true"><span>What do you need? A product, a fix, a deal…</span></div>
+      </div>
       <div class="tools">
         <button class="tool" type="button" id="attachBtn" title="Attach a photo (the space, your outfit, the room…)"><svg class="i sm"><use href="#i-camera"/></svg>Photo</button>
         <input type="file" id="fileInput" accept="image/*" hidden>
@@ -1079,7 +1109,7 @@ try { localStorage.removeItem("guestArea"); } catch {}  // guest areas used to o
 const SUGGESTIONS = [
   { text: "Where can I buy a fridge?", sub: "Deals near you, plus people you know who sell them", icon: "tag", tone: "t-deal" },
   { text: "I need a cheap laptop for school", sub: "Compare prices across the big online stores", icon: "search", tone: "t-pay" },
-  { text: "Who can fix my AC?", sub: "Matches from your own contacts", icon: "users", tone: "t-contact" },
+  { text: "Who can fix my AC?", sub: "Matches from your contacts", icon: "users", tone: "t-contact" },
 ];
 
 // ---------- helpers ----------
@@ -1121,13 +1151,38 @@ function fmtMoney(value, currency) {
 }
 
 let toastTimer;
+// Runs a button's action with the light sweeping across it. A second tap (or Enter) does nothing
+// until it's done, so an action can't run twice.
+async function sweepWhile(el, run) {
+  if (el.classList.contains("sweeping")) return;
+  el.classList.add("sweeping");
+  try {
+    return await run();
+  } finally {
+    el.classList.remove("sweeping");
+  }
+}
+
+// Links styled as buttons leave the page, which can take a moment on a slow connection. The
+// browser may bring this page back as it was, so clear them when it does.
+document.addEventListener("click", (e) => {
+  const link = e.target.closest?.("a.btn");
+  if (link && !link.target) link.classList.add("sweeping");
+});
+window.addEventListener("pageshow", () => {
+  document.querySelectorAll("a.btn.sweeping").forEach((a) => a.classList.remove("sweeping"));
+});
+
 function toast(message, isError = false) {
   const t = $("#toast");
   t.replaceChildren(h("span", { class: "dot" }, icon(isError ? "x" : "check")), h("span", {}, message));
   t.className = `toast${isError ? " error" : ""}`;
   t.hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { t.hidden = true; }, isError ? 7000 : 3500);
+  toastTimer = setTimeout(() => {
+    t.classList.add("leaving");  // slides back up, then goes
+    toastTimer = setTimeout(() => { t.hidden = true; }, 220);
+  }, isError ? 7000 : 3500);
 }
 
 const loadScript = (src) => new Promise((resolve, reject) => {
@@ -1365,7 +1420,8 @@ function dealCard(d, i, best) {
       d.miss ? h("div", { class: "deal-note miss" }, icon("info", "xs"), `Doesn't fit: ${d.miss}`) : null,
       !canSelect && d.unpayable_reason ? h("div", { class: "deal-note" }, icon("external", "xs"), `Pay on the store's site: ${d.unpayable_reason}`) : null,
       h("div", { class: "deal-actions" },
-        canSelect ? h("button", { class: "btn select-btn", type: "button", onclick: () => toggleSelect(d.deal_id) }, "Add to cart") : null,
+        canSelect ? h("button", { class: "btn select-btn", type: "button",
+          onclick: (e) => sweepWhile(e.currentTarget, () => toggleSelect(d.deal_id)) }, "Add to cart") : null,
         url ? h("a", { class: canSelect ? "btn ghost" : "btn dark", href: url, target: "_blank", rel: "noopener" },
           canSelect ? "View" : `Open at ${truncate(store, 14)}`, canSelect ? null : icon("external", "xs")) : null,
       ),
@@ -1500,7 +1556,7 @@ function contactCard(c) {
       });
       return row;
     });
-    save.addEventListener("click", () => answer([...ticked], []));  // the unticked are taken as "not them"
+    save.addEventListener("click", () => sweepWhile(save, () => answer([...ticked], [])));  // the unticked are taken as "not them"
     return h("div", { class: "ask" },
       h("div", { class: "q" }, icon("info", "xs"), `${again ? "Found again. " : ""}Which of these is ${first()}? Tick all that apply.`), ...rows,
       h("div", { class: "acts" }, save,
@@ -1563,7 +1619,7 @@ function contactCard(c) {
         save.disabled = false;
       }
     }
-    form.addEventListener("submit", (e) => { e.preventDefault(); submit(values()); });
+    form.addEventListener("submit", (e) => { e.preventDefault(); sweepWhile(save, () => submit(values())); });
     card.classList.add("editing");
     info.replaceChildren(head(false), form);
     form.elements.namedItem(focus).focus();
@@ -1604,11 +1660,11 @@ function openSheet({ icon: name, tone = "", title, text, body = null, actions })
   const titleId = `sheet-${Date.now()}`;
   const onKey = (e) => { if (e.key === "Escape") close(); };
   const close = () => { wrap.remove(); document.removeEventListener("keydown", onKey); };
-  const buttons = actions.map((a) => h("button", { class: a.cls, type: "button", onclick: async () => {
+  const buttons = actions.map((a) => h("button", { class: a.cls, type: "button", onclick: async (e) => {
     if (!a.run) return close();
     buttons.forEach((b) => { b.disabled = true; });
     try {
-      await a.run();
+      await sweepWhile(e.currentTarget, a.run);
       close();
     } catch (e) {
       toast(e.message, true);
@@ -1703,6 +1759,20 @@ const WAIT_WORDS = ["This can take a minute: I'm checking real stores", "Hold ti
                     "Looking inside the stores I found…", "Almost there…"];
 const WAIT_SLOW = [90, "Still going, some stores are slow to load"];  // joins the turns after 90s
 
+// The next words slide up into place as the old ones slide out. Everything already there leaves
+// straight away: phones pause animation frames in the background, and words queued up then
+// all showed at once, on top of each other.
+function slideWords(words, text) {
+  if (words.lastElementChild?.textContent === text) return;
+  for (const old of words.children) {
+    old.className = "out";
+    setTimeout(() => old.remove(), 500);
+  }
+  const next = h("span", { class: document.hidden ? "" : "in" }, text);
+  words.append(next);
+  requestAnimationFrame(() => requestAnimationFrame(() => { if (words.lastElementChild === next) next.className = ""; }));
+}
+
 function waitingLine(started) {
   const words = h("span", { class: "tl-words" }, h("span", {}, WAIT_WORDS[0]));
   const clock = h("span", { class: "tl-time" });
@@ -1711,19 +1781,7 @@ function waitingLine(started) {
     words, clock);
   let turn = 0, nextTurn = 0, fixed = false;
 
-  // The next words slide up into place as the old ones slide out. Everything already there leaves
-  // straight away: phones pause animation frames in the background, and words queued up then
-  // all showed at once, on top of each other.
-  const say = (text) => {
-    if (words.lastElementChild?.textContent === text) return;
-    for (const old of words.children) {
-      old.className = "out";
-      setTimeout(() => old.remove(), 500);
-    }
-    const next = h("span", { class: document.hidden ? "" : "in" }, text);
-    words.append(next);
-    requestAnimationFrame(() => requestAnimationFrame(() => { if (words.lastElementChild === next) next.className = ""; }));
-  };
+  const say = (text) => slideWords(words, text);
   const tick = () => {
     const secs = Math.floor((Date.now() - started) / 1000);
     if (secs < WAIT_AFTER && !fixed) return;
@@ -1907,7 +1965,19 @@ async function send(text) {
 function autoGrow() {
   msgInput.style.height = "auto";
   msgInput.style.height = Math.min(msgInput.scrollHeight, 160) + "px";
+  $("#msgHint").hidden = Boolean(msgInput.value);
 }
+
+// The empty box takes turns asking what you need and suggesting a photo. With a photo already
+// attached, it stays on the question.
+const MSG_HINTS = ["What do you need? A product, a fix, a deal…", "Use an image for better insight"];
+const MSG_HINT_EVERY = 5;
+let msgHintTurn = 0;
+setInterval(() => {
+  if (msgInput.value || document.hidden) return;
+  msgHintTurn = (msgHintTurn + 1) % MSG_HINTS.length;
+  slideWords($("#msgHint"), MSG_HINTS[attached ? 0 : msgHintTurn]);
+}, MSG_HINT_EVERY * 1000);
 
 let replyStop = null;  // aborts the reply in progress
 
@@ -2027,6 +2097,37 @@ function syncLoc() {
     : geoState === "stuck" ? ["Your phone asks once per visit.", h("button", { type: "button", onclick: reloadToAsk },
       isGuest() && thread.childElementCount ? "Reload to ask again (clears this chat)" : "Reload to ask again")]
     : [h("button", { type: "button", onclick: useMyArea }, "Allow location access"), "for deals near you"]));
+  checkCoverage();
+}
+
+// However the area was set (the pin, the device, sign-up, the chat), it comes through syncLoc, so
+// this is where they're told if it's in a country Scout doesn't cover yet.
+let coverage = { place: "", note: "" };
+
+async function checkCoverage() {
+  const place = area();
+  if (place === coverage.place) return showCoverage();
+  coverage = { place, note: "" };
+  showCoverage();
+  if (!place) return;
+  const note = await coverageNote(place);
+  if (coverage.place === place) coverage.note = note;
+  showCoverage();
+}
+
+// What to tell them about this area: nothing if it's covered, or if it couldn't be checked.
+async function coverageNote(place) {
+  try {
+    const { covered, country } = await api(`/geo/coverage?place=${encodeURIComponent(place)}`);
+    return covered ? "" : `Scout doesn't cover ${country} yet. It works in English-speaking countries for now.`;
+  } catch {
+    return "";
+  }
+}
+
+function showCoverage() {
+  $("#coverRow").hidden = !coverage.note || !$("#areaBar").hidden;
+  $("#coverNote").replaceChildren(icon("info", "xs"), coverage.note);
 }
 
 // An iPhone asks again on a fresh page: reload, then ask straight away.
@@ -2039,6 +2140,7 @@ function openPin() {
   $("#location").value = area();
   $("#areaBar").hidden = false;
   $("#locNoteRow").hidden = true;
+  $("#coverRow").hidden = true;
   $("#location").focus();
   $("#location").select();
 }
@@ -2061,6 +2163,7 @@ async function saveTypedArea() {
 async function useMyArea() {
   const btn = $("#useMine");
   btn.disabled = true;
+  btn.classList.add("sweeping");
   try {
     await saveArea(await deviceArea());
     closePin();
@@ -2073,6 +2176,7 @@ async function useMyArea() {
     syncLoc();
   } finally {
     btn.disabled = false;
+    btn.classList.remove("sweeping");
   }
 }
 
@@ -2298,38 +2402,53 @@ async function ensurePayPalButtons() {
     const cfg = await api("/paypal/config");
     if (!cfg.client_id) throw new Error("PayPal isn't set up yet. Add PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET to .env and restart the server.");
     if (!window.paypal) {
-      await loadScript(`https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(cfg.client_id)}&currency=${cfg.currency}&intent=capture`);
+      await loadScript(`https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(cfg.client_id)}&currency=${cfg.currency}&intent=capture&components=buttons,funding-eligibility`);
     }
     box.replaceChildren();
-    await window.paypal.Buttons({
-      style: { layout: "vertical", shape: "pill", color: "gold", label: "pay", height: 52 },
-      // The server builds the order from the stored cart, so prices can't be changed here.
-      createOrder: async () => (await api("/paypal/orders", { method: "POST", body: JSON.stringify({ user_id: uid() }) })).id,
-      onApprove: async (data) => {
-        try {
-          const res = await api(`/paypal/orders/${encodeURIComponent(data.orderID)}/capture`, {
-            method: "POST", body: JSON.stringify({ user_id: uid() }),
-          });
-          await loadCart();
-          loadPurchases();
-          $("#cartStatus").replaceChildren(res.status === "COMPLETED"
-            ? h("div", { class: "paid" },
-                h("strong", {}, `Paid ${fmtMoney(res.total, res.currency)} to ${res.store}`),
-                res.watching_receipt ? "I'll watch your Gmail for their receipt." : "Connect Gmail in Purchases so I can check they send a receipt.",
-                h("span", { class: "txn" }, `PayPal ${res.capture_id}`))
-            : h("p", { class: "error-text" }, `Payment status: ${res.status}. Your cart was kept.`));
-        } catch (e) {
-          $("#cartStatus").replaceChildren(h("p", { class: "error-text" }, e.message));
-        }
-      },
-      onCancel: () => toast("Payment cancelled. Your cart is still here."),
-      onError: (err) => $("#cartStatus").replaceChildren(h("p", { class: "error-text" }, err?.message || String(err))),
-    }).render("#paypalButtons");
+    await Promise.all(window.paypal.getFundingSources().map((source) => {
+      const slot = h("div", { class: "pay-source" });
+      const button = payButton(source, slot);
+      if (!button.isEligible()) return null;
+      box.append(slot);
+      return button.render(slot);
+    }));
     paypalState = "ready";
   } catch (e) {
     paypalState = "idle";  // try again next time the cart renders
     box.replaceChildren(h("p", { class: "error-text" }, e.message));
   }
+}
+
+// One way to pay, in its own box. PayPal draws a set of buttons in one frame we can't reach, so
+// separate buttons are how the sweep lands on the one that was tapped.
+function payButton(source, slot) {
+  return window.paypal.Buttons({
+    fundingSource: source,
+    style: source === window.paypal.FUNDING.PAYPAL
+      ? { shape: "pill", color: "gold", label: "pay", height: 52 }  // these two are only for PayPal's own button
+      : { shape: "pill", height: 52 },
+    // The server builds the order from the stored cart, so prices can't be changed here.
+    createOrder: () => sweepWhile(slot, async () => (await api("/paypal/orders", { method: "POST", body: JSON.stringify({ user_id: uid() }) })).id),
+    onApprove: (data) => sweepWhile(slot, async () => {
+      try {
+        const res = await api(`/paypal/orders/${encodeURIComponent(data.orderID)}/capture`, {
+          method: "POST", body: JSON.stringify({ user_id: uid() }),
+        });
+        await loadCart();
+        loadPurchases();
+        $("#cartStatus").replaceChildren(res.status === "COMPLETED"
+          ? h("div", { class: "paid" },
+              h("strong", {}, `Paid ${fmtMoney(res.total, res.currency)} to ${res.store}`),
+              res.watching_receipt ? "I'll watch your Gmail for their receipt." : "Connect Gmail in Purchases so I can check they send a receipt.",
+              h("span", { class: "txn" }, `PayPal ${res.capture_id}`))
+          : h("p", { class: "error-text" }, `Payment status: ${res.status}. Your cart was kept.`));
+      } catch (e) {
+        $("#cartStatus").replaceChildren(h("p", { class: "error-text" }, e.message));
+      }
+    }),
+    onCancel: () => toast("Payment cancelled. Your cart is still here."),
+    onError: (err) => $("#cartStatus").replaceChildren(h("p", { class: "error-text" }, err?.message || String(err))),
+  });
 }
 
 // ---------- purchases, Gmail and notifications ----------
@@ -2393,7 +2512,7 @@ async function loadPurchases() {
     list.replaceChildren(h("p", { class: "error-text" }, e.message));
   }
 }
-$("#refreshPurchases").addEventListener("click", loadPurchases);
+$("#refreshPurchases").addEventListener("click", (e) => sweepWhile(e.currentTarget, loadPurchases));
 
 async function loadGmail() {
   const box = $("#gmailStatus");
@@ -2443,7 +2562,8 @@ async function loadPush() {
       await saveSubscription(sub);  // links this browser to the current user id
       return box.replaceChildren(h("p", { class: "ok-text" }, "On in this browser."));
     }
-    box.replaceChildren(h("button", { class: "btn small", type: "button", onclick: enablePush }, "Turn on notifications"));
+    box.replaceChildren(h("button", { class: "btn small", type: "button",
+      onclick: (e) => sweepWhile(e.currentTarget, enablePush) }, "Turn on notifications"));
   } catch (e) {
     box.replaceChildren(h("p", { class: "error-text" }, e.message));
   }
@@ -2552,7 +2672,8 @@ function renderContactsTop() {
       h("div", { class: "bar" }, h("i", { style: `width: ${Math.round((lookedUp / (lookedUp + looking)) * 100)}%` })),
       h("p", { class: "hint" }, "You can keep shopping; this finishes on its own.")) : null,
     waiting ? h("div", { class: "lookups" }, h("p", { class: "hint" }, `${waiting} more ${waiting === 1 ? "is" : "are"} waiting to be looked up.`),
-      h("button", { class: "btn ghost small", type: "button", onclick: lookUpMore }, `Look up the next ${Math.min(waiting, LOOKUP_CAP)}`)) : null,
+      h("button", { class: "btn ghost small", type: "button", onclick: (e) => sweepWhile(e.currentTarget, lookUpMore) },
+        `Look up the next ${Math.min(waiting, LOOKUP_CAP)}`)) : null,
     toCheck ? h("div", { class: "nudge" }, icon("info", "sm"),
       `${toCheck} contact${toCheck === 1 ? " needs" : "s need"} a quick check`,
       h("button", { class: "link", type: "button", onclick: () => filterTo("check") }, "Check them")) : null,
@@ -2570,8 +2691,12 @@ async function lookUpMore() {
   }
 }
 
-$("#searchForm").addEventListener("submit", async (e) => {
+$("#searchForm").addEventListener("submit", (e) => {
   e.preventDefault();
+  sweepWhile($("#searchForm button"), searchContacts);
+});
+
+async function searchContacts() {
   const need = $("#need").value.trim();
   if (!need) { contacts.searching = false; return renderContacts(); }
   contacts.searching = true;
@@ -2587,7 +2712,7 @@ $("#searchForm").addEventListener("submit", async (e) => {
   } catch (err) {
     list.replaceChildren(h("p", { class: "error-text" }, err.message));
   }
-});
+}
 $("#showAll").addEventListener("click", () => {
   $("#need").value = "";
   contacts.searching = false;
@@ -2712,9 +2837,8 @@ function showContactReview(found, source) {
     const q = search.value.trim().toLowerCase();
     rows.forEach((row) => { row.hidden = Boolean(q) && !row.dataset.name.includes(q); });
   });
-  go.addEventListener("click", async () => {
+  go.addEventListener("click", () => sweepWhile(go, async () => {
     go.disabled = true;
-    go.textContent = "Adding…";
     try {
       const { saved } = await api("/contacts/import", {
         method: "POST", body: JSON.stringify({ user_id: uid(), source, contacts: people.filter((_, i) => chosen.has(i)) }),
@@ -2726,7 +2850,7 @@ function showContactReview(found, source) {
       toast(e.message, true);
       sync();
     }
-  });
+  }));
   sync();
   openContactFlow(
     h("div", { class: "review-head" }, h("h3", {}, `${people.length} contact${people.length === 1 ? "" : "s"} found`),
@@ -2763,7 +2887,7 @@ function showContactForm() {
       loadContacts();
     };
     try {
-      await add();
+      await sweepWhile(form.querySelector("button[type=submit]"), () => add());
     } catch (err) {
       toast(err.message, true);
     }
@@ -2807,7 +2931,7 @@ async function loadProfile() {
     box.replaceChildren(h("p", { class: "error-text" }, e.message));
   }
 }
-$("#refreshProfile").addEventListener("click", loadProfile);
+$("#refreshProfile").addEventListener("click", (e) => sweepWhile(e.currentTarget, loadProfile));
 
 // ---------- tabs and user ----------
 
@@ -2883,19 +3007,21 @@ function syncAccountSave() {
 $("#accName").addEventListener("input", syncAccountSave);
 $("#accArea").addEventListener("input", syncAccountSave);
 
-$("#accountForm").addEventListener("submit", async (e) => {
+$("#accountForm").addEventListener("submit", (e) => {
   e.preventDefault();
-  try {
-    me = await api("/auth/me", {
-      method: "PATCH", body: JSON.stringify({ name: $("#accName").value.trim(), location: $("#accArea").value.trim() }),
-    });
-    syncAccount();
-    syncLoc();
-    loadProfile();
-    toast("Saved.");
-  } catch (err) {
-    toast(err.message, true);
-  }
+  sweepWhile($("#accountForm button[type=submit]"), async () => {
+    try {
+      me = await api("/auth/me", {
+        method: "PATCH", body: JSON.stringify({ name: $("#accName").value.trim(), location: $("#accArea").value.trim() }),
+      });
+      syncAccount();
+      syncLoc();
+      loadProfile();
+      toast("Saved.");
+    } catch (err) {
+      toast(err.message, true);
+    }
+  });
 });
 
 $("#bannerSignUp").addEventListener("click", () => showAuth("signup"));
@@ -2921,12 +3047,12 @@ for (const [tab, [ico, title, text]] of Object.entries(GATES)) {
       tab === "profile" ? h("button", { class: "btn ghost small", type: "button", onclick: () => showAuth("signin") }, "Sign in") : null)));
 }
 
-$("#signOutBtn").addEventListener("click", async () => {
+$("#signOutBtn").addEventListener("click", (e) => sweepWhile(e.currentTarget, async () => {
   try { await api("/auth/signout", { method: "POST" }); } catch {}
   // leave nothing behind for the next person on this device; the area stays on the account
   try { localStorage.clear(); sessionStorage.clear(); } catch {}
   location.reload();
-});
+}));
 
 // ---------- sign in and create account ----------
 
@@ -2941,7 +3067,7 @@ function showAuth(view, note = "") {
   const field = (label, attrs) => h("label", { class: "field" }, label, h("input", attrs));
   const error = h("p", { class: "error-text", role: "alert" }, note);
   const brand = h("div", { class: "auth-brand" }, h("div", { class: "logo" }, icon("logo")), "Scout");
-  const busy = (btn, on, text) => { btn.disabled = on; if (text) btn.textContent = text; };
+  const busy = (btn, on) => { btn.disabled = on; btn.classList.toggle("sweeping", on); };
   const google = () => (googleReady ? [h("div", { class: "or-line" }, "or"),
     h("a", { class: "btn ghost block google", href: "/auth/google", html: GOOGLE_G + "Continue with Google" })] : []);
   const val = (name) => card.elements.namedItem(name).value;  // card.name is the form's own name
@@ -2960,13 +3086,13 @@ function showAuth(view, note = "") {
       h("div", { class: "auth-switch" }, "New to Scout? ", h("button", { class: "link", type: "button", onclick: () => showAuth("signup") }, "Create an account")));
     card.onsubmit = async (e) => {
       e.preventDefault();
-      busy(go, true, "Signing in…");
+      busy(go, true);
       try {
         me = await api("/auth/signin", { method: "POST", body: JSON.stringify({ email: val("email"), password: val("password") }) });
         done();
       } catch (err) {
         error.textContent = err.message;
-        busy(go, false, "Sign in");
+        busy(go, false);
       }
     };
   } else if (view === "signup") {
@@ -2980,14 +3106,14 @@ function showAuth(view, note = "") {
       h("div", { class: "auth-switch" }, "Have an account? ", h("button", { class: "link", type: "button", onclick: () => showAuth("signin") }, "Sign in")));
     card.onsubmit = async (e) => {
       e.preventDefault();
-      busy(go, true, "Creating your account…");
+      busy(go, true);
       try {
         me = await api("/auth/signup", { method: "POST", body: JSON.stringify({
           name: val("name"), email: val("email"), password: val("password") }) });
         showAuth("where");
       } catch (err) {
         error.textContent = err.message;
-        busy(go, false, "Continue");
+        busy(go, false);
       }
     };
   } else if (view === "where") {
@@ -2997,6 +3123,25 @@ function showAuth(view, note = "") {
       "aria-label": "Your area", value: visit.get("guestArea", "") });  // what they set as a guest
     const find = h("button", { class: "btn ghost block", type: "button" }, icon("pin", "sm"), "Use my location");
     const go = h("button", { class: "btn block", type: "submit" }, "Start shopping");
+    // Tells them here if the area's outside the covered countries. It never holds them up: the
+    // lookup can take seconds, and the home screen says the same if they've moved on.
+    const coverNote = h("div", { class: "loc-note cover", hidden: true });
+    let checking = "", pause;
+    const checkCover = async (place) => {
+      checking = place;
+      coverNote.hidden = true;
+      if (!place) return;
+      const note = await coverageNote(place);
+      if (checking !== place) return;
+      coverNote.replaceChildren(icon("info", "xs"), note);
+      coverNote.hidden = !note;
+    };
+    typed.addEventListener("input", () => {
+      clearTimeout(pause);
+      checking = "";
+      coverNote.hidden = true;
+      pause = setTimeout(() => checkCover(typed.value.trim()), 900);
+    });
     // No reload offered here: it would leave sign-up. They can type it, or use the pin later.
     const blocked = () => status.replaceChildren(h("div", { class: "blocked" }, icon("info"),
       h("div", {}, ...(geoState === "stuck"
@@ -3004,11 +3149,11 @@ function showAuth(view, note = "") {
         : [h("b", {}, "Location is off for Scout"), h("span", {}, `${blockedHow()}, or type your area below.`)]))));
     find.addEventListener("click", async () => {
       busy(find, true);
-      find.lastChild.textContent = "Finding you…";
       try {
         found = await deviceArea();
         status.replaceChildren(h("div", { class: "found" }, icon("pin"), h("div", {}, found, h("small", {}, "Found from your device"))));
         find.hidden = true;
+        checkCover(found);
       } catch (err) {
         if (err.code === 1) { if (geoState === "ask") status.replaceChildren(); else blocked(); }
         else status.replaceChildren(h("p", { class: "error-text" }, err.message || "Couldn't find your location. Type your area instead."));
@@ -3019,9 +3164,10 @@ function showAuth(view, note = "") {
     card.replaceChildren(h("div", { class: "steps" }, h("i", { class: "on" }), h("i", { class: "on" }), h("i")),
       h("h2", {}, "Where do you shop?"),
       h("p", { class: "lead" }, "Scout looks for stores and deals near you. Only the area is used, never your exact address."),
-      find, status, h("div", { class: "or-line" }, "or type it"), typed, error, go,
+      find, status, h("div", { class: "or-line" }, "or type it"), typed, coverNote, error, go,
       h("div", { class: "auth-switch" }, h("button", { class: "link", type: "button", onclick: () => showAuth("people") }, "Skip for now")));
     if (geoState !== "ask") blocked();
+    checkCover(typed.value.trim());  // an area they set as a guest
     card.onsubmit = async (e) => {
       e.preventDefault();
       const place = typed.value.trim() || found;
@@ -3089,7 +3235,7 @@ function showAuth(view, note = "") {
         const contact = { name: val("name").trim(), phone: val("phone").trim() || null, email: val("email").trim() || null,
           notes: notes.value.trim() || null };
         if (!contact.name) return;
-        busy(go, true, "Adding…");
+        busy(go, true);
         try {
           await api("/contacts/import", { method: "POST", body: JSON.stringify({ user_id: uid(), source: "manual", contacts: [contact] }) });
           signupAdded.push(contact);
