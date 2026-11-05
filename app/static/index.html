@@ -3067,7 +3067,11 @@ function showAuth(view, note = "") {
   const field = (label, attrs) => h("label", { class: "field" }, label, h("input", attrs));
   const error = h("p", { class: "error-text", role: "alert" }, note);
   const brand = h("div", { class: "auth-brand" }, h("div", { class: "logo" }, icon("logo")), "Scout");
-  const busy = (btn, on) => { btn.disabled = on; btn.classList.toggle("sweeping", on); };
+  const busy = (btn, on) => {
+    btn.disabled = on;
+    btn.classList.toggle("sweeping", on);
+    if (on) error.textContent = "";  // a new try: an error after this is about this one
+  };
   const google = () => (googleReady ? [h("div", { class: "or-line" }, "or"),
     h("a", { class: "btn ghost block google", href: "/auth/google", html: GOOGLE_G + "Continue with Google" })] : []);
   const val = (name) => card.elements.namedItem(name).value;  // card.name is the form's own name
