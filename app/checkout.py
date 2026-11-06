@@ -106,11 +106,14 @@ def create_order(store, paypal, user_id: str, merchants: Merchants | None = None
         raise CheckoutError("Your cart has items the app can't pay for together. Remove them and add them again.")
     items = [{"name": i.get("title") or "Item", "amount": _charge(i)} for i in cart["items"]]
     order = paypal.create_order(items, cart["currency"], cart["total"], payee_email=merchant.paypal_email)
+    # A catch-all entry stands in for every store in a demo, so the order shows the shop it's for.
+    shops = {i.get("store") for i in cart["items"] if i.get("store")}
+    name = shops.pop() if merchant.catch_all and len(shops) == 1 else merchant.name
     store.save_order(
         user_id, order["id"], [i["deal_id"] for i in cart["items"]], cart["total"], cart["currency"],
-        merchant=merchant.to_dict(), items=[{"title": i["name"], "amount": i["amount"]} for i in items],
+        merchant={**merchant.to_dict(), "name": name}, items=[{"title": i["name"], "amount": i["amount"]} for i in items],
     )
-    return {"id": order["id"], "total": cart["total"], "currency": cart["currency"], "store": merchant.name}
+    return {"id": order["id"], "total": cart["total"], "currency": cart["currency"], "store": name}
 
 
 def _charge(item: dict) -> str:

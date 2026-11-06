@@ -23,7 +23,11 @@ from app.gmail import GmailError, GmailNotConnected
 
 logger = logging.getLogger(__name__)
 
-AWAITING, FOLLOWED_UP, RECEIVED, UNCONFIRMED = "awaiting_receipt", "followed_up", "receipt_received", "unconfirmed"
+# gpt-oss reasons before answering, and the reasoning counts toward max_tokens: too low a limit
+# leaves nothing for the answer.
+ANSWER_TOKENS = 1024
+
+AWAITING, FOLLOWED_UP, RECEIVED, UNCONFIRMED ="awaiting_receipt", "followed_up", "receipt_received", "unconfirmed"
 
 JUDGE = """<task>
 You check whether a store has confirmed a purchase. You get the purchase and some emails from
@@ -181,9 +185,11 @@ class PaymentAgent:
             f"Email {n}\nFrom: {m['from']}\nDate: {m['date']}\nSubject: {m['subject']}\n{m['text'][:1500]}"
             for n, m in enumerate(emails, 1)
         )
-        answer = _parse_json(self.llm.complete(JUDGE, f"Purchase\n{_facts(p)}\n\nEmails\n{listing}", max_tokens=200))
-        number = (answer or {}).get("receipt")
-        return number - 1 if isinstance(number, int) and 1 <= number <= len(emails) else None
+        answer = _parse_json(self.llm.complete(JUDGE, f"Purchase\n{_facts(p)}\n\nEmails\n{listing}", max_tokens=ANSWER_TOKENS))
+        # gpt-oss may answer "Email 2" for 2, and an email judged here is never looked at again
+        found = re.search(r"\d+", str((answer or {}).get("receipt")))
+        number = int(found.group()) if found else 0
+        return number - 1 if 1 <= number <= len(emails) else None
 
     def _follow_up(self, p: dict) -> None:
         name = self.store.get_profile(p["user_id"]).get("name")
@@ -214,7 +220,7 @@ class PaymentAgent:
     def _write_follow_up(self, p: dict, name: str | None) -> str:
         facts = _facts(p) + (f"\nShopper's name: {name}" if name else "")
         try:
-            body = self.llm.complete(FOLLOW_UP, facts, max_tokens=400).strip()
+            body = self.llm.complete(FOLLOW_UP, facts, max_tokens=ANSWER_TOKENS).strip()
         except Exception:
             logger.exception("couldn't write the follow-up email; using the template")
             body = ""

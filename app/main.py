@@ -147,6 +147,11 @@ def get_contact_llm() -> LLM:
 
 
 @lru_cache(maxsize=1)
+def get_payment_llm() -> LLM:
+    return LLM(model_id=config.PAYMENT_MODEL_ID)
+
+
+@lru_cache(maxsize=1)
 def get_paypal() -> PayPal:
     return PayPal()
 
@@ -158,7 +163,7 @@ def get_gmail() -> Gmail:
 
 @lru_cache(maxsize=1)
 def get_payment_agent() -> PaymentAgent:
-    return PaymentAgent(get_llm(), get_store(), get_gmail(), push.Notifier(get_store()))
+    return PaymentAgent(get_payment_llm(), get_store(), get_gmail(), push.Notifier(get_store()))
 
 
 def get_contact_agent() -> ContactAgent:
@@ -793,14 +798,21 @@ def list_purchases(user_id: str, _: str = Depends(member)):
 @app.get("/google/status/{user_id}")
 def google_status(user_id: str, _: str = Depends(member)):
     gmail = get_gmail()
-    return {"configured": gmail.configured, "email": gmail.connected_email(user_id)}
+    return {"configured": gmail.configured, "email": gmail.connected_email(user_id), "open": _gmail_open_for(user_id)}
 
 
 @app.get("/google/connect", include_in_schema=False)
 def google_connect(user_id: str, _: str = Depends(member)):
-    _need_google_approval()
+    if not _gmail_open_for(user_id):
+        _need_google_approval()
     account = get_store().get_account(user_id) or {}
     return RedirectResponse(get_gmail().auth_url(user_id, account.get("email")))
+
+
+def _gmail_open_for(user_id: str) -> bool:
+    if config.GOOGLE_APP_VERIFIED:
+        return True
+    return (get_store().get_account(user_id) or {}).get("email") in config.GOOGLE_TEST_EMAILS
 
 
 def _need_google_approval() -> None:

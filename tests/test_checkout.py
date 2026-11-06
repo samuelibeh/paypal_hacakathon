@@ -48,6 +48,28 @@ def _deal(**fields):
     return checkout.prepare_deal(fields, MERCHANTS, rates={})  # not the rates in your .env
 
 
+def test_a_stand_in_merchant_shows_the_shop_the_order_is_for():
+    demo = Merchants([Merchant("demo", "Demo Store", ("*",), "payee@demo.com", "help@demo.com", ())])
+    paypal = FakePayPalServer().client()
+
+    def order_from(*shops):
+        store = fake_store()
+        deals = store.save_deals("u1", [checkout.prepare_deal(
+            {"store": s, "title": "Laptop", "amount": 10, "currency": "USD", "url": f"https://{i}.test/x"}, demo, rates={})
+            for i, s in enumerate(shops)])
+        for deal in deals:
+            checkout.add_item(store, "u1", deal["deal_id"])
+        return store, checkout.create_order(store, paypal, "u1", demo)
+
+    store, order = order_from("Phonehubb Lagos")
+    assert order["store"] == "Phonehubb Lagos"
+    saved = store.get_order(order["id"])["merchant"]
+    assert saved["name"] == "Phonehubb Lagos" and saved["paypal_email"] == "payee@demo.com"  # still paid the same way
+
+    _, mixed = order_from("Phonehubb Lagos", "Slot")  # two shops in one cart: no single name to show
+    assert mixed["store"] == "Demo Store"
+
+
 def _rates_service(monkeypatch, body, status=200):
     def get(url, timeout):
         assert url.endswith("/USD")

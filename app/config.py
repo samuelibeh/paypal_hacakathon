@@ -26,6 +26,8 @@ STORE_MODEL_ID = os.getenv("STORE_MODEL_ID", "openai.gpt-oss-20b-1:0")
 # The contact agent, which reads web results about each imported contact and describes them:
 # many short calls in the background, so the same small model.
 CONTACT_MODEL_ID = os.getenv("CONTACT_MODEL_ID", "openai.gpt-oss-20b-1:0")
+# The payment agent, which reads the store's emails and writes the follow-up: the same small model.
+PAYMENT_MODEL_ID = os.getenv("PAYMENT_MODEL_ID", "openai.gpt-oss-20b-1:0")
 
 # Web search (Tavily)
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
@@ -77,6 +79,9 @@ GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:8000/go
 # Until it does, the app shows them as "opens soon" and the server refuses them. Sign-in
 # with Google only needs name and email, so it works either way. Set to 1 once approved.
 GOOGLE_APP_VERIFIED = os.getenv("GOOGLE_APP_VERIFIED", "").lower() in ("1", "true", "yes")
+# Until then Google only lets the test users listed on the OAuth consent screen connect Gmail.
+# Put the same emails here, comma separated, and only those accounts get the button.
+GOOGLE_TEST_EMAILS = {e.strip().lower() for e in os.getenv("GOOGLE_TEST_EMAILS", "").split(",") if e.strip()}
 # Signs the OAuth state. If unset, a random one is used, so a restart cancels connects in progress.
 APP_SECRET = os.getenv("APP_SECRET") or secrets.token_hex(32)
 

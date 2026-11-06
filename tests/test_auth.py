@@ -256,3 +256,23 @@ def test_gmail_and_google_contacts_wait_for_google_approval(monkeypatch):
         resp = client.get(url, follow_redirects=False)
         assert resp.status_code == 403 and "Coming soon" in resp.json()["detail"]
     assert client.get("/health").json()["google_verified"] is False
+
+
+def test_only_listed_test_users_can_connect_gmail_before_google_approves(monkeypatch):
+    from app import config
+    from app.gmail import Gmail
+    store = fake_store()
+    tester = store.create_account("tester@gmail.com", "Sam", "hash", None)["user_id"]
+    other = store.create_account("someone@gmail.com", "Ada", "hash", None)["user_id"]
+    monkeypatch.setattr(main, "get_store", lambda: store)
+    monkeypatch.setattr(main, "get_gmail", lambda: Gmail(store, "cid", "secret", "http://localhost/cb"))
+    monkeypatch.setattr(config, "GOOGLE_APP_VERIFIED", False)
+    monkeypatch.setattr(config, "GOOGLE_TEST_EMAILS", {"tester@gmail.com"})
+
+    allowed, refused = signed_in(main.app, tester), signed_in(main.app, other)
+    assert allowed.get(f"/google/status/{tester}").json()["open"] is True
+    assert refused.get(f"/google/status/{other}").json()["open"] is False
+    assert allowed.get(f"/google/connect?user_id={tester}", follow_redirects=False).status_code == 307
+    assert refused.get(f"/google/connect?user_id={other}", follow_redirects=False).status_code == 403
+    # Google Contacts stays closed, even for a test user
+    assert allowed.get(f"/contacts/google/connect?user_id={tester}", follow_redirects=False).status_code == 403

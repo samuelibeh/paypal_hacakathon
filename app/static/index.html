@@ -2531,7 +2531,7 @@ async function loadGmail() {
       box.replaceChildren(h("div", { class: "row", style: "justify-content: space-between; align-items: center;" },
         h("span", { class: "ok-text" }, `Connected: ${s.email}`),
         h("button", { class: "link", type: "button", onclick: disconnectGmail }, "Disconnect")));
-    } else if (!googleVerified) {
+    } else if (!s.open) {
       box.replaceChildren(lockedGoogleButton("Connect Gmail", false),
         h("p", { class: "hint" }, "Once Google approves Scout, it'll watch for the store's receipt and follow up for you."));
     } else {

@@ -97,6 +97,17 @@ def test_a_matching_store_email_completes_the_purchase():
     assert "PayPal transaction ID: CAP1" in judged and "Big sale" in judged
 
 
+def test_a_receipt_named_in_words_still_counts():
+    s = Setup()
+    s.pay()
+    s.gmail.inbox = [email("m1", "orders@shop.com", "Your order is confirmed", "Fridge $499.99, PayPal CAP1")]
+    s.bedrock.responses.append(text_reply('{"receipt": "Email 1", "reason": "Same item and amount."}'))
+
+    s.later()
+
+    assert s.purchase()["status"] == "receipt_received"
+
+
 def test_no_receipt_by_the_deadline_emails_the_store_as_the_user_then_keeps_watching():
     s = Setup()
     s.store.remember("u1", "name", "Sam")
