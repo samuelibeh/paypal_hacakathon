@@ -731,11 +731,27 @@
   .step .rail-dot { display: flex; flex-direction: column; align-items: center; }
   .step .dot { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; flex: none; border: 2px solid var(--border-strong); background: var(--surface); }
   .step .dot .i { width: 12px; height: 12px; stroke-width: 3; }
-  .step .line { width: 2px; flex: 1; min-height: 14px; background: var(--border-strong); margin: 3px 0; }
+  .step .line { position: relative; overflow: hidden; width: 2px; flex: 1; min-height: 14px; background: var(--border-strong); margin: 3px 0; }
   .step.done .dot { background: var(--ok); border-color: var(--ok); color: #fff; }
   .step.done .line { background: var(--ok); }
-  .step.live .dot { background: var(--warn-soft); border-color: var(--warn); }
-  .step.live .dot::after { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--warn); }
+  .step.live .dot { background: none; border-color: var(--blue-soft); border-top-color: var(--blue); animation: step-spin .85s linear infinite; }
+  /* a step that finishes while it's on screen: the circle pops, the tick draws, the line fills down */
+  .step.arrive .dot { animation: step-pop .35s var(--d) both; }
+  .step.arrive .dot .i { stroke-dasharray: 30; animation: step-tick .3s calc(var(--d) + .12s) both; }
+  .step.arrive .line { background: var(--border-strong); }
+  .step.arrive .line::after { content: ""; position: absolute; inset: 0; background: var(--ok); transform-origin: top; animation: step-line .35s calc(var(--d) + .2s) ease-out both; }
+  @keyframes step-spin { to { transform: rotate(360deg); } }
+  @keyframes step-pop {
+    0% { transform: scale(.7); background: var(--surface); border-color: var(--border-strong); }
+    60% { transform: scale(1.18); }
+    100% { transform: scale(1); }
+  }
+  @keyframes step-tick { from { stroke-dashoffset: 30; } to { stroke-dashoffset: 0; } }
+  @keyframes step-line { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+  @media (prefers-reduced-motion: reduce) {
+    .step.live .dot { animation: none; border-color: var(--blue); }
+    .step.arrive .dot, .step.arrive .dot .i, .step.arrive .line::after { animation: none; }
+  }
   .step.fail .dot { background: var(--err); border-color: var(--err); color: #fff; }
   .step .txt { padding-bottom: 14px; }
   .step:last-child .txt { padding-bottom: 0; }
@@ -2554,18 +2570,25 @@ function purchaseHead(stores, title, items, total, currency) {
 
 const paidDate = (p) => new Date(p.paid_ts * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 const paymentTotal = (stores) => stores.reduce((sum, p) => sum + Number(p.total), 0);
+const finishedSteps = new Map();  // how many steps each purchase had finished when last shown
 
 // One store's timeline, its receipt and any email Scout sent it.
 function purchaseProgress(p) {
   const sent = p.follow_up;
   const steps = purchaseSteps(p, paidDate(p));
+  const finished = steps.filter(([state]) => state === "done").length;
+  const before = finishedSteps.get(p.purchase_id) ?? finished;  // nothing plays the first time it's shown
+  finishedSteps.set(p.purchase_id, finished);
   return [
-    h("div", { class: "steps" }, steps.map(([state, title, detail], i) => h("div", { class: `step ${state}` },
-      h("div", { class: "rail-dot" },
-        h("span", { class: "dot" }, state === "done" ? icon("check") : state === "fail" ? icon("x") : null),
-        i < steps.length - 1 ? h("span", { class: "line" }) : null),
-      h("div", { class: "txt" }, h("strong", {}, title), detail ? h("div", { class: "contact-meta" }, detail) : null),
-    ))),
+    h("div", { class: "steps" }, steps.map(([state, title, detail], i) => {
+      const arriving = state === "done" && i >= before;
+      return h("div", { class: `step ${state}${arriving ? " arrive" : ""}`, style: arriving ? `--d: ${(i - before) * .55}s` : null },
+        h("div", { class: "rail-dot" },
+          h("span", { class: "dot" }, state === "done" ? icon("check") : state === "fail" ? icon("x") : null),
+          i < steps.length - 1 ? h("span", { class: "line" }) : null),
+        h("div", { class: "txt" }, h("strong", {}, title), detail ? h("div", { class: "contact-meta" }, detail) : null),
+      );
+    })),
     p.receipt ? h("div", { class: "quote" }, icon("mail", "sm"), `“${p.receipt.subject}”`) : null,
     sent ? h("details", { class: "mail" }, h("summary", {}, "The email I sent"),
       h("pre", { class: "email-copy" }, `To: ${sent.to}\nSubject: ${sent.subject}\n\n${sent.body}`)) : null,
