@@ -2554,6 +2554,8 @@ const STORE_STATUS = {
   unconfirmed: "Hasn't confirmed this order",
 };
 
+const openStores = new Map();  // rows the shopper opened or closed, kept when the list updates
+
 function purchaseGroup(stores) {
   const received = stores.filter((p) => p.status === "receipt_received").length;
   const tone = received === stores.length ? "ok" : stores.some((p) => p.status === "unconfirmed") ? "err" : "off";
@@ -2562,7 +2564,8 @@ function purchaseGroup(stores) {
   return h("div", { class: "order" },
     purchaseHead(stores.map((p) => p.store), `${stores.length} stores`, stores.flatMap((p) => p.items), total, stores[0].currency),
     h("span", { class: `pill ${tone}`, style: "justify-self: start" }, `${received} of ${stores.length} receipts in`),
-    h("div", { class: "shops" }, stores.map((p) => h("details", { class: "shop", open: p === waiting },
+    h("div", { class: "shops" }, stores.map((p) => h("details", { class: "shop", open: openStores.get(p.purchase_id) ?? p === waiting,
+      ontoggle: (e) => openStores.set(p.purchase_id, e.currentTarget.open) },
       h("summary", {},
         storeLogo(p.store),
         h("div", { class: "grow" }, h("strong", {}, p.store), h("div", { class: "contact-meta" }, STORE_STATUS[p.status] || p.status)),
@@ -2586,14 +2589,29 @@ function purchaseCards(purchases) {
     : purchaseCard(group[0]));
 }
 
+// The ticks appear by themselves: the list keeps updating while a store's receipt is outstanding.
+const PURCHASE_REFRESH_MS = 5000;
+const STILL_WATCHING = new Set(["awaiting_receipt", "followed_up"]);
+let purchaseTimer;
+let shownPurchases = "";
+
 async function loadPurchases() {
+  clearTimeout(purchaseTimer);
+  const again = () => { purchaseTimer = setTimeout(loadPurchases, PURCHASE_REFRESH_MS); };
+  if (document.hidden && shownPurchases) return again();
   const list = $("#purchaseList");
   try {
     const { purchases } = await api(`/purchases/${uidPath()}`);
-    list.replaceChildren(...(purchases.length
-      ? purchaseCards(purchases)
-      : [h("p", { class: "hint" }, "Nothing paid for yet. Your orders and their receipts show up here.")]));
+    const seen = JSON.stringify(purchases.map((p) => [p.purchase_id, p.status, p.receipt, p.follow_up]));
+    if (seen !== shownPurchases) {
+      shownPurchases = seen;
+      list.replaceChildren(...(purchases.length
+        ? purchaseCards(purchases)
+        : [h("p", { class: "hint" }, "Nothing paid for yet. Your orders and their receipts show up here.")]));
+    }
+    if (purchases.some((p) => STILL_WATCHING.has(p.status))) again();
   } catch (e) {
+    if (shownPurchases) return again();  // a dropped connection shouldn't wipe the list
     list.replaceChildren(h("p", { class: "error-text" }, e.message));
   }
 }

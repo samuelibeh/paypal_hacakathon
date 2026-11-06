@@ -98,18 +98,15 @@ def test_a_matching_store_email_completes_the_purchase():
     assert "PayPal transaction ID: CAP1" in judged and "Big sale" in judged
 
 
-def _as_demo(s, seconds=60):
-    s.agent.demo_receipt_seconds = seconds
+def _as_demo(s, on=True):
+    s.agent.demo_receipts = on
     s.store.update_purchase("ORDER1", merchant={**s.purchase()["merchant"], "domains": ["*"]}, store="Phonehubb Lagos")
 
 
 def test_a_demo_payment_gets_one_labelled_receipt_from_the_shoppers_own_gmail():
     s = Setup()
     s.pay()
-    _as_demo(s, seconds=600)
-    s.later()
-    assert s.gmail.sent == []  # not due yet
-
+    _as_demo(s)
     s.later()
     [sent] = s.gmail.sent
     assert sent["to"] == "sam@gmail.com" and sent["subject"] == "Demo receipt: your order from Phonehubb Lagos"
@@ -125,27 +122,34 @@ def test_a_demo_payment_gets_one_labelled_receipt_from_the_shoppers_own_gmail():
 def test_a_demo_receipt_never_goes_out_for_a_real_store_or_when_turned_off():
     real = Setup()
     real.pay()
-    real.agent.demo_receipt_seconds = 60  # Shop is a real merchant entry
+    real.agent.demo_receipts = True  # Shop is a real merchant entry
     real.later()
     assert real.gmail.sent == []
 
     off = Setup()
     off.pay()
-    _as_demo(off, seconds=0)
+    _as_demo(off, on=False)
     off.later()
     assert off.gmail.sent == []
+
+
+def _no_send(*args, **kwargs):
+    raise RuntimeError("Gmail is down")
 
 
 class TwoStores:
     """One demo payment covering a laptop from Phonehubb and a fan from Slot."""
 
-    def __init__(self):
+    def __init__(self, demo_receipts=False, send_works=True):
         self.now = 1_800_000_000.0
         self.store, self.bedrock, self.gmail, self.pushed = fake_store(), FakeBedrock(), FakeGmail(), []
+        self.working_send = self.gmail.send
+        if not send_works:
+            self.gmail.send = _no_send
         self.store.add_push_subscription("u1", {"endpoint": "https://push.test/1", "keys": {"p256dh": "k", "auth": "a"}})
         notifier = Notifier(self.store, send=lambda sub, data: self.pushed.append(json.loads(data)), enabled=True)
         self.agent = PaymentAgent(LLM(self.bedrock, "m"), self.store, self.gmail, notifier, wait_hours=24,
-                                  poll_seconds=300, clock=lambda: self.now, demo_receipt_seconds=0)
+                                  poll_seconds=300, clock=lambda: self.now, demo_receipts=demo_receipts)
         demo = Merchants([Merchant("demo", "Demo Store", ("*",), "payee@demo.com", "help@demo.com", ())])
         deals = self.store.save_deals("u1", [
             checkout.prepare_deal({"store": shop, "title": title, "amount": amount, "currency": "USD",
@@ -196,9 +200,7 @@ def test_each_store_in_a_payment_gets_its_own_follow_up_and_its_own_receipt():
 
 
 def test_one_stores_demo_receipt_cant_complete_another_stores_order():
-    s = TwoStores()
-    s.agent.demo_receipt_seconds = 60
-    s.later()
+    s = TwoStores(demo_receipts=True)
     assert sorted(m["subject"] for m in s.gmail.sent) == ["Demo receipt: your order from Phonehubb", "Demo receipt: your order from Slot"]
 
     s.gmail.inbox = [email("m1", "sam@gmail.com", "Demo receipt: your order from Slot", "Fan $30.00, PayPal CAP1")]
@@ -208,6 +210,15 @@ def test_one_stores_demo_receipt_cant_complete_another_stores_order():
     bought = s.purchases()
     assert bought["Slot"]["status"] == "receipt_received" and bought["Phonehubb"]["status"] == "awaiting_receipt"
     assert len(s.bedrock.requests) == 1  # Phonehubb's check never saw Slot's receipt
+
+
+def test_a_demo_receipt_that_cant_send_doesnt_fail_the_payment_and_goes_out_at_the_next_check():
+    s = TwoStores(demo_receipts=True, send_works=False)
+    assert s.result["status"] == "COMPLETED" and s.gmail.sent == []
+
+    s.gmail.send = s.working_send
+    s.later()
+    assert len(s.gmail.sent) == 2
 
 
 def test_a_receipt_named_in_words_still_counts():

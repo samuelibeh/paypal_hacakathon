@@ -98,13 +98,13 @@ class PaymentAgent:
         wait_hours: float = config.RECEIPT_WAIT_HOURS,
         poll_seconds: int = config.RECEIPT_POLL_SECONDS,
         clock=time.time,
-        demo_receipt_seconds: int = config.DEMO_RECEIPT_SECONDS,
+        demo_receipts: bool = config.DEMO_RECEIPTS,
     ):
         self.llm, self.store, self.gmail, self.notifier = llm, store, gmail, notifier
         self.wait = wait_hours * 3600
         self.poll = poll_seconds
         self.clock = clock
-        self.demo_receipt_seconds = demo_receipt_seconds
+        self.demo_receipts = demo_receipts
 
     # --- paying ----------------------------------------------------------------
 
@@ -116,16 +116,17 @@ class PaymentAgent:
         order = self.store.get_order(order_id)
         now = self.clock()
         shares = _by_store(order)
-        created = [self.store.create_purchase({
+        purchases = [{
             "purchase_id": purchase_id, "user_id": user_id, "store": name, "merchant": {**order["merchant"], "name": name},
             "items": items, "total": total, "currency": order["currency"],
             "capture_id": result["capture_id"], "paid_ts": now, "deadline_ts": now + self.wait,
             "next_check_ts": now + self.poll, "status": AWAITING, "receipt": None, "follow_up": None,
-        }) for purchase_id, name, items, total in shares]
+        } for purchase_id, name, items, total in shares]
+        created = [p for p in purchases if self.store.create_purchase(p)]
         store_name = order["merchant"]["name"]
         sender = "each store" if len(shares) > 1 else store_name
         inbox = self.gmail.connected_email(user_id)
-        if any(created):  # a retried capture must not notify twice
+        if created:  # a retried capture must not notify twice
             amount = fmt_money(order["total"], order["currency"])
             self.notifier.notify(
                 user_id, f"Payment sent to {store_name}",
@@ -133,6 +134,11 @@ class PaymentAgent:
                 if inbox else
                 f"You paid {amount} with PayPal. Connect Gmail in the app so I can check that {sender} sends a receipt.",
             )
+        for p in created:  # the money has moved, so a failure here waits for the next check
+            try:
+                self._send_demo_receipt(p)
+            except Exception:
+                logger.exception("demo receipt for %s failed", p["purchase_id"])
         stores = [name for _, name, _, _ in shares]
         return {**result, "store": store_name, "stores": stores, "watching_receipt": bool(inbox)}
 
@@ -176,9 +182,8 @@ class PaymentAgent:
     def _send_demo_receipt(self, p: dict) -> None:
         """Sandbox stores send no receipts, so a demo payment gets a labelled one from the shopper's
         own Gmail to itself. Real stores are never involved: only the catch-all merchant gets this."""
-        due = self.demo_receipt_seconds and self.clock() >= p["paid_ts"] + self.demo_receipt_seconds
         inbox = self.gmail.connected_email(p["user_id"])
-        if not due or not inbox or p.get("demo_receipt_sent") or ANY not in p["merchant"]["domains"]:
+        if not self.demo_receipts or not inbox or p.get("demo_receipt_sent") or ANY not in p["merchant"]["domains"]:
             return
         lines = "\n".join(f"- {i['title']}: {fmt_money(i['amount'], p['currency'])}" for i in p["items"])
         self.gmail.send(p["user_id"], inbox, _demo_subject(p), (
