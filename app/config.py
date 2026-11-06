@@ -94,7 +94,8 @@ VAPID_SUBJECT = os.getenv("VAPID_SUBJECT")  # mailto:you@example.com
 RECEIPT_WAIT_HOURS = float(os.getenv("RECEIPT_WAIT_HOURS", "24"))
 RECEIPT_POLL_SECONDS = int(os.getenv("RECEIPT_POLL_SECONDS", "300"))
 # Sandbox stores don't send receipts. Set this to 1 and, right after a payment to the catch-all
-# demo merchant, Scout emails the shopper a receipt labelled as a demo, so the whole flow can be shown.
+# demo merchant, Scout emails the shopper a receipt it wrote itself (its body says so), so the
+# whole flow can be shown.
 DEMO_RECEIPTS = os.getenv("DEMO_RECEIPTS", "").lower() in ("1", "true", "yes")
 
 MAX_AGENT_TURNS = 8

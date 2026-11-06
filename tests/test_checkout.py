@@ -48,6 +48,17 @@ def _deal(**fields):
     return checkout.prepare_deal(fields, MERCHANTS, rates={})  # not the rates in your .env
 
 
+def test_paid_items_are_remembered_by_their_store_link():
+    store = fake_store()
+    paid, unpaid = store.save_deals("u1", [{"url": "https://shop.com/fridge"}, {"url": "https://shop.com/fan"}])
+    store.save_order("u1", "O1", [paid["deal_id"]], "10.00", "USD", merchant={}, items=[])
+    store.save_order("u1", "O2", [unpaid["deal_id"]], "10.00", "USD", merchant={}, items=[])
+    store.update_order("O1", status="COMPLETED")
+
+    assert list(store.bought_links("u1")) == ["https://shop.com/fridge"]
+    assert store.bought_links("u2") == {}
+
+
 def test_a_stand_in_merchant_shows_the_shop_the_order_is_for():
     demo = Merchants([Merchant("demo", "Demo Store", ("*",), "payee@demo.com", "help@demo.com", ())])
     paypal = FakePayPalServer().client()

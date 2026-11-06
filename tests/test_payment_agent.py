@@ -109,8 +109,8 @@ def test_a_demo_payment_gets_one_labelled_receipt_from_the_shoppers_own_gmail():
     _as_demo(s)
     s.later()
     [sent] = s.gmail.sent
-    assert sent["to"] == "sam@gmail.com" and sent["subject"] == "Demo receipt: your order from Phonehubb Lagos"
-    assert "demo receipt from Scout" in sent["body"] and "CAP1" in sent["body"] and "Fridge" in sent["body"]
+    assert sent["to"] == "sam@gmail.com" and sent["subject"] == "Receipt for your order from Phonehubb Lagos"
+    assert "Sent by Scout for this sandbox payment" in sent["body"] and "CAP1" in sent["body"] and "Fridge" in sent["body"]
     assert "from:sam@gmail.com" in s.gmail.queries[-1]
 
     s.gmail.inbox = [email("m1", "sam@gmail.com", sent["subject"], sent["body"])]
@@ -201,9 +201,9 @@ def test_each_store_in_a_payment_gets_its_own_follow_up_and_its_own_receipt():
 
 def test_one_stores_demo_receipt_cant_complete_another_stores_order():
     s = TwoStores(demo_receipts=True)
-    assert sorted(m["subject"] for m in s.gmail.sent) == ["Demo receipt: your order from Phonehubb", "Demo receipt: your order from Slot"]
+    assert sorted(m["subject"] for m in s.gmail.sent) == ["Receipt for your order from Phonehubb", "Receipt for your order from Slot"]
 
-    s.gmail.inbox = [email("m1", "sam@gmail.com", "Demo receipt: your order from Slot", "Fan $30.00, PayPal CAP1")]
+    s.gmail.inbox = [email("m1", "sam@gmail.com", "Receipt for your order from Slot", "Fan $30.00, PayPal CAP1")]
     s.bedrock.responses.append(text_reply('{"receipt": 1, "reason": "Same transaction."}'))
     s.later()
 

@@ -351,6 +351,16 @@ class Store:
             "created_at": _now(),
         })
 
+    def bought_links(self, user_id: str) -> dict[str, float]:
+        """The store link of everything this user has paid for, and when they last paid for it."""
+        bought = {}
+        for order in self.orders.find({"user_id": user_id, "status": "COMPLETED"}).sort("updated_at", 1):
+            paid = order["updated_at"].replace(tzinfo=timezone.utc).timestamp()
+            for deal in self.deals.find({"user_id": user_id, "deal_id": {"$in": order["deal_ids"]}}, {"url": 1}):
+                if deal.get("url"):
+                    bought[deal["url"]] = paid
+        return bought
+
     def get_order(self, order_id: str) -> dict | None:
         return self.orders.find_one({"order_id": order_id}, {"_id": 0})
 

@@ -180,16 +180,17 @@ class PaymentAgent:
             )
 
     def _send_demo_receipt(self, p: dict) -> None:
-        """Sandbox stores send no receipts, so a demo payment gets a labelled one from the shopper's
-        own Gmail to itself. Real stores are never involved: only the catch-all merchant gets this."""
+        """Sandbox stores send no receipts, so a demo payment gets one from the shopper's own Gmail
+        to itself, and its body says so. Real stores are never involved: only the catch-all merchant
+        gets this."""
         inbox = self.gmail.connected_email(p["user_id"])
         if not self.demo_receipts or not inbox or p.get("demo_receipt_sent") or ANY not in p["merchant"]["domains"]:
             return
         lines = "\n".join(f"- {i['title']}: {fmt_money(i['amount'], p['currency'])}" for i in p["items"])
         self.gmail.send(p["user_id"], inbox, _demo_subject(p), (
-            f"This is a demo receipt from Scout. It stands in for {p['store']}, because sandbox stores "
-            f"don't send real ones.\n\nOrder confirmed:\n{lines}\n\nTotal: {_amount(p)}\n"
-            f"PayPal transaction: {p['capture_id']}"
+            f"Thanks for your order from {p['store']}.\n\nOrder confirmed:\n{lines}\n\nTotal: {_amount(p)}\n"
+            f"PayPal transaction: {p['capture_id']}\n\n"
+            f"Sent by Scout for this sandbox payment, because sandbox stores don't send receipts."
         ))
         self.store.update_purchase(p["purchase_id"], demo_receipt_sent=True)
         p["demo_receipt_sent"] = True
@@ -276,7 +277,7 @@ def _by_store(order: dict) -> list[tuple[str, str, list[dict], str]]:
 
 
 def _demo_subject(p: dict) -> str:
-    return f"Demo receipt: your order from {p['store']}"
+    return f"Receipt for your order from {p['store']}"
 
 
 def _amount(p: dict) -> str:

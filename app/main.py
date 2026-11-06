@@ -754,20 +754,26 @@ def deal_image(user_id: str, deal_id: str, _: str = Depends(owner)):
     return {"image": deal["image"]}
 
 
+def _for_browser(user_id: str, cart: dict) -> dict:
+    """The cart plus what's been bought before, which marks the deal cards. Only the app needs it,
+    so it stays out of the cart the agent sees."""
+    return {**cart, "bought": get_store().bought_links(user_id)}
+
+
 @app.get("/cart/{user_id}")
 def get_cart(user_id: str, _: str = Depends(owner)):
-    return checkout.cart_summary(get_store(), user_id)
+    return _for_browser(user_id, checkout.cart_summary(get_store(), user_id))
 
 
 @app.post("/cart/{user_id}/items")
 def add_cart_item(user_id: str, req: CartItemRequest, _: str = Depends(owner)):
-    return checkout.add_item(get_store(), user_id, req.deal_id)
+    return _for_browser(user_id, checkout.add_item(get_store(), user_id, req.deal_id))
 
 
 @app.delete("/cart/{user_id}/items/{deal_id}")
 def remove_cart_item(user_id: str, deal_id: str, _: str = Depends(owner)):
     get_store().remove_from_cart(user_id, [deal_id])
-    return checkout.cart_summary(get_store(), user_id)
+    return _for_browser(user_id, checkout.cart_summary(get_store(), user_id))
 
 
 @app.get("/paypal/config")

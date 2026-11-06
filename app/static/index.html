@@ -478,6 +478,14 @@
   .deal-actions { display: flex; gap: 8px; margin-top: auto; padding-top: 6px; }
   .deal-actions .btn { height: 40px; padding: 0 16px; }
   .deal-actions .btn:first-child { flex: 1; }
+  .deal-bought { display: none; flex: 1; min-width: 0; align-items: center; gap: 10px; }
+  .deal.bought .deal-bought { display: flex; }
+  .deal.bought .deal-actions > .btn { display: none; }
+  .bought-status {
+    flex: 1; min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 40px; padding: 0 12px;
+    border-radius: 999px; background: var(--ok-soft); color: var(--ok); font-size: 14px; font-weight: 700; white-space: nowrap;
+  }
+  .buy-again { flex: none; padding: 2px; border: 0; background: none; color: var(--blue); font: 600 13px/1 var(--font); cursor: pointer; }
 
   .cards { display: grid; gap: 12px; }
   .contacts { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
@@ -643,7 +651,7 @@
     background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden;
     display: flex; flex-direction: column; min-height: 0;
   }
-  .panel { flex: 1; overflow-y: auto; padding: 28px; display: grid; gap: 20px; align-content: start; }
+  .panel { flex: 1; overflow-y: auto; padding: 28px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-content: start; }
   .panel-head { display: flex; align-items: center; gap: 10px; }
   .panel-head h2 { margin: 0; flex: 1; font-size: 20px; line-height: 26px; font-weight: 700; letter-spacing: -.4px; }
   .row { display: flex; gap: 8px; }
@@ -1439,7 +1447,7 @@ function dealCard(d, i, best) {
     best ? h("span", { class: "badge right" }, icon("sparkles", "xs"), "Best price") : null,
   );
   loadDealPhoto(media, d, i);
-  return h("div", { class: "deal", "data-deal-id": d.deal_id || null },
+  return h("div", { class: "deal", "data-deal-id": d.deal_id || null, "data-url": d.url || null },
     media,
     h("div", { class: "deal-body" },
       h("div", { class: "deal-store" }, h("span", { class: "store-logo" }, store[0]), store),
@@ -1456,6 +1464,10 @@ function dealCard(d, i, best) {
           onclick: (e) => sweepWhile(e.currentTarget, () => toggleSelect(d.deal_id)) }, "Add to cart") : null,
         url ? h("a", { class: canSelect ? "btn ghost" : "btn dark", href: url, target: "_blank", rel: "noopener" },
           canSelect ? "View" : `Open at ${truncate(store, 14)}`, canSelect ? null : icon("external", "xs")) : null,
+        canSelect ? h("div", { class: "deal-bought" },
+          h("span", { class: "bought-status" }),
+          h("button", { class: "buy-again", type: "button",
+            onclick: (e) => sweepWhile(e.currentTarget, () => toggleSelect(d.deal_id)) }, "Buy again")) : null,
       ),
     ),
   );
@@ -2341,10 +2353,23 @@ document.addEventListener("drop", (e) => {
 let cart = { items: [], total: "0.00", currency: payCurrency };
 const inCart = (id) => cart.items.some((i) => i.deal_id === id);
 
+// The same product comes back with a new deal id in a later search, so it's matched on its link.
+const sameProduct = (url) => (url || "").split("#")[0].replace(/\/+$/, "");
+
+function boughtDates() {
+  const when = (ts) => new Date(ts * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  return new Map(Object.entries(cart.bought || {}).map(([url, ts]) => [sameProduct(url), when(ts)]));
+}
+
 function syncSelected() {
+  const bought = boughtDates();
   document.querySelectorAll(".deal[data-deal-id]").forEach((card) => {
     const on = inCart(card.dataset.dealId);
     card.classList.toggle("selected", on);
+    const status = card.querySelector(".bought-status");
+    const paid = bought.get(sameProduct(card.dataset.url));
+    card.classList.toggle("bought", Boolean(status && paid && !on));  // Buy again puts it back in the cart
+    if (status && paid) status.replaceChildren(icon("check", "sm"), `Bought ${paid}`);
     const btn = card.querySelector(".select-btn");
     if (btn) {
       btn.replaceChildren(...(on ? [icon("check", "sm"), "In cart"] : ["Add to cart"]));
