@@ -694,22 +694,30 @@
   .order { display: grid; gap: 14px; padding: 18px; border-radius: 18px; background: var(--bg); }
   .order-head { display: flex; align-items: center; gap: 8px; }
   .order-head .grow { flex: 1; min-width: 0; }
-  .order-head .logos { display: flex; flex: none; }
+  .order-head .logos, .past .logos { display: flex; flex: none; }
   .order-head .store-logo { width: 36px; height: 36px; border-radius: 10px; font: 700 15px/1 var(--font); }
   .order-head .store-logo + .store-logo { margin-left: -10px; box-shadow: 0 0 0 2px var(--bg); background: var(--navy-2); }
   .order-head strong { display: block; font-size: 15px; font-weight: 600; }
   .order-total { font-size: 18px; font-weight: 800; letter-spacing: -.4px; }
   .shops { display: grid; gap: 8px; }
   .shop { border-radius: 14px; background: var(--surface); }
-  .shop > summary { display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 14px; cursor: pointer; list-style: none; }
-  .shop > summary::-webkit-details-marker { display: none; }
-  .shop > summary .store-logo { width: 28px; height: 28px; border-radius: 8px; font: 700 12px/1 var(--font); }
-  .shop > summary .grow { flex: 1; min-width: 0; }
-  .shop > summary strong { display: block; font-size: 14px; font-weight: 600; }
-  .shop > summary .price { font-size: 14px; font-weight: 700; }
-  .shop > summary > .i { flex: none; color: var(--text-3); transition: transform .15s; }
-  .shop[open] > summary > .i { transform: rotate(180deg); }
+  .past { border-radius: 14px; background: var(--bg); }
+  .shop > summary, .past > summary { display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 14px; cursor: pointer; list-style: none; }
+  .shop > summary::-webkit-details-marker, .past > summary::-webkit-details-marker { display: none; }
+  .shop > summary .store-logo, .past > summary .store-logo { width: 28px; height: 28px; border-radius: 8px; font: 700 12px/1 var(--font); }
+  .past > summary .store-logo + .store-logo { margin-left: -8px; box-shadow: 0 0 0 2px var(--bg); background: var(--navy-2); }
+  .shop > summary .grow, .past > summary .grow { flex: 1; min-width: 0; }
+  .shop > summary strong, .past > summary strong { display: block; font-size: 14px; font-weight: 600; }
+  .shop > summary .price, .past > summary .price { font-size: 14px; font-weight: 700; }
+  .shop > summary > .i, .past > summary > .i { flex: none; color: var(--text-3); transition: transform .15s; }
+  .shop[open] > summary > .i, .past[open] > summary > .i { transform: rotate(180deg); }
   .shop-body { display: grid; gap: 12px; padding: 2px 12px 14px; }
+  .past-sum { display: grid; justify-items: end; flex: none; }
+  .past-done { display: flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 600; color: var(--ok); }
+  .past-body { display: grid; gap: 8px; padding: 0 12px 12px; }
+  .past-store { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--text-2); }
+  .past-store b { font-weight: 600; color: var(--text); }
+  .past-store > :last-child { flex: none; }
   .steps { display: grid; }
   .step { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 12px; }
   .step .rail-dot { display: flex; flex-direction: column; align-items: center; }
@@ -1069,8 +1077,10 @@
         <div id="pushStatus"></div>
       </div>
     </div>
-    <div class="caps">Orders</div>
+    <div class="caps" id="ordersCaps">Orders</div>
     <div class="cards" id="purchaseList"></div>
+    <div class="caps" id="pastCaps" hidden>Past orders</div>
+    <div class="cards" id="pastList" hidden></div>
   </div>
 
   <div class="panel" id="tab-contacts" hidden>
@@ -2517,11 +2527,13 @@ function purchaseHead(stores, title, items, total, currency) {
   );
 }
 
+const paidDate = (p) => new Date(p.paid_ts * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+const paymentTotal = (stores) => stores.reduce((sum, p) => sum + Number(p.total), 0);
+
 // One store's timeline, its receipt and any email Scout sent it.
 function purchaseProgress(p) {
-  const paid = new Date(p.paid_ts * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
   const sent = p.follow_up;
-  const steps = purchaseSteps(p, paid);
+  const steps = purchaseSteps(p, paidDate(p));
   return [
     h("div", { class: "steps" }, steps.map(([state, title, detail], i) => h("div", { class: `step ${state}` },
       h("div", { class: "rail-dot" },
@@ -2560,9 +2572,8 @@ function purchaseGroup(stores) {
   const received = stores.filter((p) => p.status === "receipt_received").length;
   const tone = received === stores.length ? "ok" : stores.some((p) => p.status === "unconfirmed") ? "err" : "off";
   const waiting = stores.find((p) => p.status !== "receipt_received");
-  const total = stores.reduce((sum, p) => sum + Number(p.total), 0);
   return h("div", { class: "order" },
-    purchaseHead(stores.map((p) => p.store), `${stores.length} stores`, stores.flatMap((p) => p.items), total, stores[0].currency),
+    purchaseHead(stores.map((p) => p.store), `${stores.length} stores`, stores.flatMap((p) => p.items), paymentTotal(stores), stores[0].currency),
     h("span", { class: `pill ${tone}`, style: "justify-self: start" }, `${received} of ${stores.length} receipts in`),
     h("div", { class: "shops" }, stores.map((p) => h("details", { class: "shop", open: openStores.get(p.purchase_id) ?? p === waiting,
       ontoggle: (e) => openStores.set(p.purchase_id, e.currentTarget.open) },
@@ -2577,16 +2588,63 @@ function purchaseGroup(stores) {
   );
 }
 
+// A finished order, as a short row that opens to show each store.
+function pastRow({ key, stores }) {
+  return h("details", { class: "past", open: openStores.get(key), ontoggle: (e) => openStores.set(key, e.currentTarget.open) },
+    h("summary", {},
+      h("div", { class: "logos" }, stores.slice(0, 3).map((p) => storeLogo(p.store))),
+      h("div", { class: "grow" },
+        h("strong", {}, stores.length > 1 ? `${stores.length} stores` : stores[0].store),
+        h("div", { class: "contact-meta" }, paidDate(stores[0]))),
+      h("div", { class: "past-sum" },
+        h("span", { class: "price" }, fmtMoney(paymentTotal(stores), stores[0].currency)),
+        h("span", { class: "past-done" }, icon("check", "xs"), "Complete")),
+      icon("chevron", "sm")),
+    h("div", { class: "past-body" },
+      h("div", { class: "contact-meta" }, stores.flatMap((p) => p.items).map((i) => i.title).join(", ")),
+      stores.map((p) => h("div", { class: "past-store" },
+        h("span", {}, h("b", {}, p.store), " · Receipt received"),
+        h("span", {}, fmtMoney(p.total, p.currency)))),
+      h("span", { class: "txn" }, `PayPal TXN ${stores[0].capture_id}`)),
+  );
+}
+
 // Stores paid in one go share a PayPal capture.
-function purchaseCards(purchases) {
+function paymentsIn(purchases) {
   const payments = new Map();
   for (const p of purchases) {
     const key = p.capture_id || p.purchase_id;
     payments.set(key, [...(payments.get(key) || []), p]);
   }
-  return [...payments.values()].map((group) => group.length > 1
-    ? purchaseGroup(group.sort((a, b) => a.purchase_id.localeCompare(b.purchase_id)))
-    : purchaseCard(group[0]));
+  return [...payments].map(([key, stores]) => ({ key, stores: stores.sort((a, b) => a.purchase_id.localeCompare(b.purchase_id)) }));
+}
+
+const isFinished = (stores) => stores.every((p) => p.status === "receipt_received");
+
+// An order seen unfinished stays in Orders until Purchases is next opened, so its ticks can be
+// watched turning green. An order a store never confirmed stays there too: it needs the shopper.
+const watchedPayments = new Set();
+let lastPurchases = null;
+
+function renderPurchases(purchases) {
+  lastPurchases = purchases;
+  const payments = paymentsIn(purchases);
+  payments.filter((p) => !isFinished(p.stores)).forEach((p) => watchedPayments.add(p.key));
+  const isPast = (p) => isFinished(p.stores) && !watchedPayments.has(p.key);
+  const current = payments.filter((p) => !isPast(p));
+  const past = payments.filter(isPast);
+  const showOrders = current.length > 0 || past.length === 0;
+  $("#ordersCaps").hidden = $("#purchaseList").hidden = !showOrders;
+  $("#pastCaps").hidden = $("#pastList").hidden = past.length === 0;
+  $("#purchaseList").replaceChildren(...(payments.length
+    ? current.map(({ stores }) => stores.length > 1 ? purchaseGroup(stores) : purchaseCard(stores[0]))
+    : [h("p", { class: "hint" }, "Nothing paid for yet. Your orders and their receipts show up here.")]));
+  $("#pastList").replaceChildren(...past.map(pastRow));
+}
+
+function purchasesOpened() {
+  watchedPayments.clear();
+  if (lastPurchases) renderPurchases(lastPurchases);
 }
 
 // The ticks appear by themselves: the list keeps updating while a store's receipt is outstanding.
@@ -2599,20 +2657,17 @@ async function loadPurchases() {
   clearTimeout(purchaseTimer);
   const again = () => { purchaseTimer = setTimeout(loadPurchases, PURCHASE_REFRESH_MS); };
   if (document.hidden && shownPurchases) return again();
-  const list = $("#purchaseList");
   try {
     const { purchases } = await api(`/purchases/${uidPath()}`);
     const seen = JSON.stringify(purchases.map((p) => [p.purchase_id, p.status, p.receipt, p.follow_up]));
     if (seen !== shownPurchases) {
       shownPurchases = seen;
-      list.replaceChildren(...(purchases.length
-        ? purchaseCards(purchases)
-        : [h("p", { class: "hint" }, "Nothing paid for yet. Your orders and their receipts show up here.")]));
+      renderPurchases(purchases);
     }
     if (purchases.some((p) => STILL_WATCHING.has(p.status))) again();
   } catch (e) {
     if (shownPurchases) return again();  // a dropped connection shouldn't wipe the list
-    list.replaceChildren(h("p", { class: "error-text" }, e.message));
+    $("#purchaseList").replaceChildren(h("p", { class: "error-text" }, e.message));
   }
 }
 $("#refreshPurchases").addEventListener("click", (e) => sweepWhile(e.currentTarget, loadPurchases));
@@ -3053,6 +3108,7 @@ function syncNav() {
 
 // Switch the panel's page without opening anything.
 function showTab(name) {
+  if (name === "purchases") purchasesOpened();
   currentTab = name;
   document.querySelectorAll(".panel").forEach((p) => { p.hidden = p.id !== `tab-${name}`; });
   local.set("tab", name);
