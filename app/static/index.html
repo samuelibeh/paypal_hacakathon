@@ -424,7 +424,8 @@
     background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--e1);
     transition: border-color .15s, box-shadow .15s;
   }
-  .deal.selected { box-shadow: 0 0 12px 1px rgba(96,205,255,.55), 0 0 34px 6px rgba(0,112,224,.2); }
+  .deal.selected .deal-body { background: var(--blue-soft); }
+  .deal.selected .charge-chip { background: var(--surface); }  /* it's the same pale blue as the tint */
   .deal-media { height: 168px; display: grid; place-items: center; position: relative; overflow: hidden; }
   .deal-media > .i { width: 52px; height: 52px; stroke-width: 1.5; opacity: .55; }
   /* while the photo is being fetched: a light sweeping across a grey box */
@@ -454,7 +455,7 @@
   }
   .badge.left { left: 12px; background: var(--navy); }
   .badge.right { right: 12px; background: var(--blue); font-family: var(--font); font-weight: 600; }
-  .deal-body { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px 16px; flex: 1; }
+  .deal-body { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px 16px; flex: 1; transition: background .2s; }
   .deal-store { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 500; color: var(--text-2); }
   .store-logo {
     width: 20px; height: 20px; border-radius: 6px; background: var(--text); color: var(--bg);
@@ -901,9 +902,7 @@
     /* one card and a peek of the next; swipe sideways */
     .deals {
       display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none;
-      /* the row clips what spills out of it, so the padding leaves room for a card's glow, and
-         the negative margins keep the row where it was */
-      margin: -30px -16px -28px; padding: 32px 16px; overscroll-behavior-x: contain;
+      margin: 0 -16px; padding: 2px 16px 4px; overscroll-behavior-x: contain;
     }
     .deals::-webkit-scrollbar { display: none; }
     .deals > .deal { flex: 0 0 82%; scroll-snap-align: start; scroll-margin-left: 16px; }
@@ -2125,7 +2124,7 @@ async function checkCoverage() {
 async function coverageNote(place) {
   try {
     const { covered, country } = await api(`/geo/coverage?place=${encodeURIComponent(place)}`);
-    return covered ? "" : `Scout doesn't cover ${country} yet. It works in English-speaking countries for now.`;
+    return covered ? "" : `Scout doesn't work as well in ${country} yet, so you may see fewer results.`;
   } catch {
     return "";
   }
