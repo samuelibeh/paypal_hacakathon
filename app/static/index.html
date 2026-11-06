@@ -1208,7 +1208,9 @@ async function request(path, opts = {}) {
 }
 
 function httpError(status, data) {
-  if ([502, 503, 504].includes(status)) {  // nginx's page while Scout restarts (e.g. during a deploy)
+  // nginx's page while Scout restarts (e.g. during a deploy). Scout's own 502s say what went
+  // wrong in `detail`, like a payment PayPal turned down.
+  if ([502, 503, 504].includes(status) && !data?.detail) {
     return Object.assign(new Error("Scout is restarting. Try again in a moment."), { temporary: true });
   }
   const detail = typeof data === "object" && data ? data.detail ?? data : data;

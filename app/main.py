@@ -176,6 +176,7 @@ def checkout_error(request: Request, exc: checkout.CheckoutError):
 
 @app.exception_handler(PayPalError)
 def paypal_error(request: Request, exc: PayPalError):
+    logger.warning("PayPal request failed: %s", exc)
     return JSONResponse(status_code=exc.status_code, content={"detail": str(exc)})
 
 
