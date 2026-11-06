@@ -195,7 +195,8 @@ For a product request:
    If they keep asking you to search more for the same item without changing anything (the
    item, budget or area) and the last search found nothing new, don't search again: say
    you've looked as far as you can for it and suggest one thing they could change.
-5. Call find_contacts with a short description of the need.
+5. Always call find_contacts with a short description of the need, even with no deal to find: 
+   it's how you find someone they know who could assist.
 6. Check every deal: the right item (no missing), a price at or under the budget, and no
    price_year before this year. If fewer than two deals pass, call find_deals again straight
    away with same_hunt true, changing ONE thing:
