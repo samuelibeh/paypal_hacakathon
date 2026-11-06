@@ -16,10 +16,12 @@ import json
 import logging
 import re
 import time
+from decimal import Decimal
 from datetime import datetime, timezone
 
 from app import checkout, config
 from app.gmail import GmailError, GmailNotConnected
+from app.merchants import ANY
 
 logger = logging.getLogger(__name__)
 
@@ -96,11 +98,13 @@ class PaymentAgent:
         wait_hours: float = config.RECEIPT_WAIT_HOURS,
         poll_seconds: int = config.RECEIPT_POLL_SECONDS,
         clock=time.time,
+        demo_receipt_seconds: int = config.DEMO_RECEIPT_SECONDS,
     ):
         self.llm, self.store, self.gmail, self.notifier = llm, store, gmail, notifier
         self.wait = wait_hours * 3600
         self.poll = poll_seconds
         self.clock = clock
+        self.demo_receipt_seconds = demo_receipt_seconds
 
     # --- paying ----------------------------------------------------------------
 
@@ -110,24 +114,27 @@ class PaymentAgent:
             return {**result, "watching_receipt": False}
 
         order = self.store.get_order(order_id)
-        store_name = order["merchant"]["name"]
         now = self.clock()
-        created = self.store.create_purchase({
-            "purchase_id": order_id, "user_id": user_id, "store": store_name, "merchant": order["merchant"],
-            "items": order["items"], "total": order["total"], "currency": order["currency"],
+        shares = _by_store(order)
+        created = [self.store.create_purchase({
+            "purchase_id": purchase_id, "user_id": user_id, "store": name, "merchant": {**order["merchant"], "name": name},
+            "items": items, "total": total, "currency": order["currency"],
             "capture_id": result["capture_id"], "paid_ts": now, "deadline_ts": now + self.wait,
             "next_check_ts": now + self.poll, "status": AWAITING, "receipt": None, "follow_up": None,
-        })
+        }) for purchase_id, name, items, total in shares]
+        store_name = order["merchant"]["name"]
+        sender = "each store" if len(shares) > 1 else store_name
         inbox = self.gmail.connected_email(user_id)
-        if created:  # a retried capture must not notify twice
+        if any(created):  # a retried capture must not notify twice
             amount = fmt_money(order["total"], order["currency"])
             self.notifier.notify(
                 user_id, f"Payment sent to {store_name}",
-                f"You paid {amount} with PayPal. I'll tell you when {store_name}'s receipt arrives in {inbox}."
+                f"You paid {amount} with PayPal. I'll tell you when {sender}'s receipt arrives in {inbox}."
                 if inbox else
-                f"You paid {amount} with PayPal. Connect Gmail in the app so I can check that {store_name} sends a receipt.",
+                f"You paid {amount} with PayPal. Connect Gmail in the app so I can check that {sender} sends a receipt.",
             )
-        return {**result, "store": store_name, "watching_receipt": bool(inbox)}
+        stores = [name for _, name, _, _ in shares]
+        return {**result, "store": store_name, "stores": stores, "watching_receipt": bool(inbox)}
 
     # --- following up ----------------------------------------------------------
 
@@ -144,6 +151,7 @@ class PaymentAgent:
 
     def _check(self, p: dict) -> None:
         try:
+            self._send_demo_receipt(p)
             receipt = self._find_receipt(p)
         except GmailNotConnected:
             receipt = None
@@ -165,12 +173,32 @@ class PaymentAgent:
                 f"{p['merchant']['support_email']} and quote PayPal transaction {p['capture_id']}.",
             )
 
+    def _send_demo_receipt(self, p: dict) -> None:
+        """Sandbox stores send no receipts, so a demo payment gets a labelled one from the shopper's
+        own Gmail to itself. Real stores are never involved: only the catch-all merchant gets this."""
+        due = self.demo_receipt_seconds and self.clock() >= p["paid_ts"] + self.demo_receipt_seconds
+        inbox = self.gmail.connected_email(p["user_id"])
+        if not due or not inbox or p.get("demo_receipt_sent") or ANY not in p["merchant"]["domains"]:
+            return
+        lines = "\n".join(f"- {i['title']}: {fmt_money(i['amount'], p['currency'])}" for i in p["items"])
+        self.gmail.send(p["user_id"], inbox, _demo_subject(p), (
+            f"This is a demo receipt from Scout. It stands in for {p['store']}, because sandbox stores "
+            f"don't send real ones.\n\nOrder confirmed:\n{lines}\n\nTotal: {_amount(p)}\n"
+            f"PayPal transaction: {p['capture_id']}"
+        ))
+        self.store.update_purchase(p["purchase_id"], demo_receipt_sent=True)
+        p["demo_receipt_sent"] = True
+
     def _find_receipt(self, p: dict) -> dict | None:
         merchant = p["merchant"]
         senders = set(merchant["receipt_senders"]) | {merchant["support_email"].rsplit("@", 1)[-1].lower()}
-        query = "{" + " ".join(f"from:{s}" for s in sorted(senders)) + "}" + f" after:{int(p['paid_ts']) - 3600}"
+        if p.get("demo_receipt_sent"):
+            senders.add(self.gmail.connected_email(p["user_id"]))
+        query ="{" + " ".join(f"from:{s}" for s in sorted(senders)) + "}" + f" after:{int(p['paid_ts']) - 3600}"
         seen = set(p.get("checked_message_ids") or [])
         emails = [m for m in self.gmail.search(p["user_id"], query) if m["id"] not in seen]
+        if p.get("demo_receipt_sent"):  # every store's receipt quotes the same PayPal transaction
+            emails = [m for m in emails if m["subject"] == _demo_subject(p)]
         if not emails:
             return None
         pick = self._judge(p, emails)
@@ -225,6 +253,25 @@ class PaymentAgent:
             logger.exception("couldn't write the follow-up email; using the template")
             body = ""
         return body or _template(p, name)
+
+
+def _by_store(order: dict) -> list[tuple[str, str, list[dict], str]]:
+    """(purchase id, store, items, total) for each store this payment covers, so each is tracked
+    and followed up on its own. Only a demo's catch-all merchant can cover several."""
+    merchant = order["merchant"]
+    stores: dict[str, list[dict]] = {}
+    for item in order["items"]:
+        stores.setdefault(item.get("store") or merchant["name"], []).append(item)
+    if ANY not in merchant["domains"] or len(stores) < 2:
+        return [(order["order_id"], merchant["name"], order["items"], order["total"])]
+    return [
+        (f"{order['order_id']}-{n}", name, items, checkout.money(sum(Decimal(i["amount"]) for i in items), order["currency"]))
+        for n, (name, items) in enumerate(stores.items(), 1)
+    ]
+
+
+def _demo_subject(p: dict) -> str:
+    return f"Demo receipt: your order from {p['store']}"
 
 
 def _amount(p: dict) -> str:

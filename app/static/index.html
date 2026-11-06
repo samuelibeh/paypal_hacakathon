@@ -694,8 +694,22 @@
   .order { display: grid; gap: 14px; padding: 18px; border-radius: 18px; background: var(--bg); }
   .order-head { display: flex; align-items: center; gap: 8px; }
   .order-head .grow { flex: 1; min-width: 0; }
+  .order-head .logos { display: flex; flex: none; }
+  .order-head .store-logo { width: 36px; height: 36px; border-radius: 10px; font: 700 15px/1 var(--font); }
+  .order-head .store-logo + .store-logo { margin-left: -10px; box-shadow: 0 0 0 2px var(--bg); background: var(--navy-2); }
   .order-head strong { display: block; font-size: 15px; font-weight: 600; }
   .order-total { font-size: 18px; font-weight: 800; letter-spacing: -.4px; }
+  .shops { display: grid; gap: 8px; }
+  .shop { border-radius: 14px; background: var(--surface); }
+  .shop > summary { display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 14px; cursor: pointer; list-style: none; }
+  .shop > summary::-webkit-details-marker { display: none; }
+  .shop > summary .store-logo { width: 28px; height: 28px; border-radius: 8px; font: 700 12px/1 var(--font); }
+  .shop > summary .grow { flex: 1; min-width: 0; }
+  .shop > summary strong { display: block; font-size: 14px; font-weight: 600; }
+  .shop > summary .price { font-size: 14px; font-weight: 700; }
+  .shop > summary > .i { flex: none; color: var(--text-3); transition: transform .15s; }
+  .shop[open] > summary > .i { transform: rotate(180deg); }
+  .shop-body { display: grid; gap: 12px; padding: 2px 12px 14px; }
   .steps { display: grid; }
   .step { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 12px; }
   .step .rail-dot { display: flex; flex-direction: column; align-items: center; }
@@ -789,7 +803,7 @@
   .added .who small { display: block; font-size: 11px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .added .who > .i { color: var(--ok); }
   .auth-card .btn { height: 46px; }
-  .steps { display: flex; gap: 6px; }
+  .auth-card .steps { display: flex; gap: 6px; }
   /* sign-up progress, with the close button at the end of its row instead of over the last step */
   .auth-head { display: flex; align-items: center; gap: 12px; margin: -8px -10px 0 0; }
   .auth-head .steps { flex: 1; min-width: 0; }
@@ -948,6 +962,7 @@
   <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6M14 11v6"/></symbol>
   <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></symbol>
   <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M8 16H3v5"/></symbol>
+  <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
 </svg>
 
 <div class="auth-screen" id="authScreen" hidden>
@@ -2446,7 +2461,7 @@ function payButton(source, slot) {
         $("#cartStatus").replaceChildren(res.status === "COMPLETED"
           ? h("div", { class: "paid" },
               h("strong", {}, `Paid ${fmtMoney(res.total, res.currency)} to ${res.store}`),
-              res.watching_receipt ? "I'll watch your Gmail for their receipt." : "Connect Gmail in Purchases so I can check they send a receipt.",
+              paidNote(res),
               h("span", { class: "txn" }, `PayPal ${res.capture_id}`))
           : h("p", { class: "error-text" }, `Payment status: ${res.status}. Your cart was kept.`));
       } catch (e) {
@@ -2459,6 +2474,15 @@ function payButton(source, slot) {
 }
 
 // ---------- purchases, Gmail and notifications ----------
+
+// A payment to several stores names them, since the heading above only counts them.
+function paidNote(res) {
+  const stores = res.stores || [];
+  if (stores.length < 2) return res.watching_receipt ? "I'll watch your Gmail for their receipt." : "Connect Gmail in Purchases so I can check they send a receipt.";
+  const count = stores.length === 2 ? "both" : `all ${stores.length}`;
+  const names = `${stores.slice(0, -1).join(", ")} and ${stores.at(-1)}`;
+  return `${names}. ${res.watching_receipt ? `I'll watch your Gmail for ${count} receipts.` : "Connect Gmail in Purchases so I can check they send receipts."}`;
+}
 
 const PURCHASE_STATUS = {
   awaiting_receipt: () => ["off", "Paid · waiting for the store's receipt"],
@@ -2483,18 +2507,22 @@ function purchaseSteps(p, paid) {
   return steps;
 }
 
-function purchaseCard(p) {
-  const [tone, label] = (PURCHASE_STATUS[p.status] || (() => ["", p.status]))(p);
+const storeLogo = (name) => h("span", { class: "store-logo" }, (name || "?")[0]);
+
+function purchaseHead(stores, title, items, total, currency) {
+  return h("div", { class: "order-head" },
+    h("div", { class: "logos" }, stores.slice(0, 3).map(storeLogo)),
+    h("div", { class: "grow" }, h("strong", {}, title), h("div", { class: "contact-meta" }, truncate(items.map((i) => i.title).join(", "), 60))),
+    h("span", { class: "order-total" }, fmtMoney(total, currency)),
+  );
+}
+
+// One store's timeline, its receipt and any email Scout sent it.
+function purchaseProgress(p) {
   const paid = new Date(p.paid_ts * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
   const sent = p.follow_up;
   const steps = purchaseSteps(p, paid);
-  return h("div", { class: "order" },
-    h("div", { class: "order-head" },
-      h("span", { class: "store-logo", style: "width: 36px; height: 36px; border-radius: 10px; font: 700 15px/1 var(--font)" }, (p.store || "?")[0]),
-      h("div", { class: "grow" }, h("strong", {}, p.store), h("div", { class: "contact-meta" }, truncate(p.items.map((i) => i.title).join(", "), 60))),
-      h("span", { class: "order-total" }, fmtMoney(p.total, p.currency)),
-    ),
-    h("span", { class: `pill ${tone}`, style: "justify-self: start" }, label),
+  return [
     h("div", { class: "steps" }, steps.map(([state, title, detail], i) => h("div", { class: `step ${state}` },
       h("div", { class: "rail-dot" },
         h("span", { class: "dot" }, state === "done" ? icon("check") : state === "fail" ? icon("x") : null),
@@ -2504,8 +2532,58 @@ function purchaseCard(p) {
     p.receipt ? h("div", { class: "quote" }, icon("mail", "sm"), `“${p.receipt.subject}”`) : null,
     sent ? h("details", { class: "mail" }, h("summary", {}, "The email I sent"),
       h("pre", { class: "email-copy" }, `To: ${sent.to}\nSubject: ${sent.subject}\n\n${sent.body}`)) : null,
+  ];
+}
+
+function purchaseCard(p) {
+  const [tone, label] = (PURCHASE_STATUS[p.status] || (() => ["", p.status]))(p);
+  return h("div", { class: "order" },
+    purchaseHead([p.store], p.store, p.items, p.total, p.currency),
+    h("span", { class: `pill ${tone}`, style: "justify-self: start" }, label),
+    purchaseProgress(p),
     h("span", { class: "txn" }, `PayPal TXN ${p.capture_id}`),
   );
+}
+
+// One PayPal payment that covered several stores. Each store is tracked on its own, so each has
+// its own row, and the first still waiting on a receipt starts open.
+const STORE_STATUS = {
+  awaiting_receipt: "Waiting for the receipt",
+  receipt_received: "Receipt received",
+  followed_up: "No receipt yet · I emailed them",
+  unconfirmed: "Hasn't confirmed this order",
+};
+
+function purchaseGroup(stores) {
+  const received = stores.filter((p) => p.status === "receipt_received").length;
+  const tone = received === stores.length ? "ok" : stores.some((p) => p.status === "unconfirmed") ? "err" : "off";
+  const waiting = stores.find((p) => p.status !== "receipt_received");
+  const total = stores.reduce((sum, p) => sum + Number(p.total), 0);
+  return h("div", { class: "order" },
+    purchaseHead(stores.map((p) => p.store), `${stores.length} stores`, stores.flatMap((p) => p.items), total, stores[0].currency),
+    h("span", { class: `pill ${tone}`, style: "justify-self: start" }, `${received} of ${stores.length} receipts in`),
+    h("div", { class: "shops" }, stores.map((p) => h("details", { class: "shop", open: p === waiting },
+      h("summary", {},
+        storeLogo(p.store),
+        h("div", { class: "grow" }, h("strong", {}, p.store), h("div", { class: "contact-meta" }, STORE_STATUS[p.status] || p.status)),
+        h("span", { class: "price" }, fmtMoney(p.total, p.currency)),
+        icon("chevron", "sm")),
+      h("div", { class: "shop-body" }, purchaseProgress(p)),
+    ))),
+    h("span", { class: "txn" }, `PayPal TXN ${stores[0].capture_id}`),
+  );
+}
+
+// Stores paid in one go share a PayPal capture.
+function purchaseCards(purchases) {
+  const payments = new Map();
+  for (const p of purchases) {
+    const key = p.capture_id || p.purchase_id;
+    payments.set(key, [...(payments.get(key) || []), p]);
+  }
+  return [...payments.values()].map((group) => group.length > 1
+    ? purchaseGroup(group.sort((a, b) => a.purchase_id.localeCompare(b.purchase_id)))
+    : purchaseCard(group[0]));
 }
 
 async function loadPurchases() {
@@ -2513,7 +2591,7 @@ async function loadPurchases() {
   try {
     const { purchases } = await api(`/purchases/${uidPath()}`);
     list.replaceChildren(...(purchases.length
-      ? purchases.map(purchaseCard)
+      ? purchaseCards(purchases)
       : [h("p", { class: "hint" }, "Nothing paid for yet. Your orders and their receipts show up here.")]));
   } catch (e) {
     list.replaceChildren(h("p", { class: "error-text" }, e.message));

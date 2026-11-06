@@ -67,7 +67,7 @@ def test_a_stand_in_merchant_shows_the_shop_the_order_is_for():
     assert saved["name"] == "Phonehubb Lagos" and saved["paypal_email"] == "payee@demo.com"  # still paid the same way
 
     _, mixed = order_from("Phonehubb Lagos", "Slot")  # two shops in one cart: no single name to show
-    assert mixed["store"] == "Demo Store"
+    assert mixed["store"] == "2 stores"
 
 
 def _rates_service(monkeypatch, body, status=200):
